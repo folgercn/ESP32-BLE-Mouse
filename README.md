@@ -1,5 +1,7 @@
 # ESP32 BLE Mouse Gateway
 
+[English README / 英文版说明请点击这里](#english-overview)
+
 ## 项目简介
 ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装，通过 BLE HID 与 Android 原生兼容；同时提供 HTTP+JSON 控制接口，所有动作参数由服务器下发，实现完全「无固件改动」的批量控制能力。WiFi 通过 WiFiManager 热点完成一次性配置，掉电即可自动重连。
 
@@ -41,7 +43,23 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
 - **click 专属**：`x`, `y`
 - **swipe 专属**：`x1`, `y1`, `x2`, `y2`, `duration`
 
-示例：
+点击示例：
+
+```
+POST http://192.168.1.23/action
+{
+  "type": "click",
+  "x": 900,
+  "y": 1100,
+  "screen_w": 1080,
+  "screen_h": 2248,
+  "delay_hover": 50,
+  "delay_press": 80,
+  "double_check": 20
+}
+```
+
+滑动示例：
 
 ```
 POST http://192.168.1.23/action
@@ -86,26 +104,79 @@ POST http://192.168.1.23/action
 ## English Overview
 ESP32 BLE Mouse Gateway impersonates a **Wacom Digitizer** so Android accepts it natively. A lightweight HTTP+JSON bridge feeds every motion parameter from the server, while WiFiManager handles provisioning via a temporary AP. Once WiFi is online, the device rebrands itself as `Wacom-{MAC4}-{IP3}` and starts NimBLE HID advertising.
 
-### Key Selling Points
-- **Device Masquerade**: NimBLE HID descriptor mirrors Wacom stylus; custom name encodes MAC/IP for fleet ops.
-- **Human-like Motions**: Quadratic Bézier with random offsets plus jitter; Double-Release click ensures no stuck touches.
-- **Robust Link**: Connection health comes straight from the BLE stack; handcrafted advertisement fixes discoverability.
-- **JSON-Driven Automation**: Resolution, delays, velocity, curvature all come from server JSON—no firmware rebuilds.
-- **Turnkey Networking**: WiFiManager captive portal + optional static IP fields; `/reset_wifi` endpoint wipes creds remotely.
+### Highlights
+- **Device Masquerade**: HID descriptor mirrors Wacom stylus; custom BLE name embeds MAC/IP for fleet management.
+- **Human-like Motions**: Quadratic Bézier curves with random offsets and jitter; Double-Release prevents stuck touches.
+- **Link Reliability**: Connection state reads directly from the NimBLE stack; handcrafted advertising fixes discoverability gaps.
+- **JSON-Driven Logic**: Resolution, delays, curve strength and motion speed all controlled by server JSON—no firmware rebuild.
+- **Operational Networking**: WiFiManager captive portal with optional static IP form; `GET /reset_wifi` clears credentials remotely.
+
+### Architecture
+- `ESP32-BLE-Mouse.ino`: Hosts HTTP server, parses JSON, manages lifecycle.
+- `BleDriver.*`: Implements Wacom-style HID reports and motion algorithms.
+- `NetHelper.*`: Wraps WiFiManager auto-provisioning, static IP storage, and BLE name generation.
+
+### Quick Start
+1. Hardware: ESP32-DevKitC / ESP32-WROOM, USB or 5 V supply.
+2. Toolchain: Arduino IDE or PlatformIO with `NimBLE-Arduino`, `ArduinoJson`, `WiFiManager`.
+3. Flash: open the folder, select the proper board/port, upload.
+4. First boot: device spawns AP `Wacom-Setup-XXXX`; connect, visit `192.168.4.1`, enter WiFi plus optional static IP.
+5. Run mode: after WiFi joins, BLE advertises with the dynamic name and HTTP server listens on `http://<device-ip>/action`.
+6. Reset WiFi: call `http://<device-ip>/reset_wifi` to erase credentials and reboot into setup AP.
 
 ### API Recap
 ```
 POST /action
+Headers: Content-Type: application/json
 type: "click" | "swipe"
 click -> x, y
 swipe -> x1, y1, x2, y2, duration
-optional -> screen_w, screen_h, delay_* fields, curve_strength, double_check
+common -> screen_w, screen_h, delay_hover, delay_press, delay_interval,
+          delay_release, double_check, curve_strength
 ```
 
-### Deployment Tips
-- Flash via Arduino IDE/PlatformIO with `NimBLE-Arduino`, `ArduinoJson`, `WiFiManager`.
-- First boot: join AP `Wacom-Setup-XXXX`, submit WiFi + optional static IP.
-- Reset WiFi anytime through `GET /reset_wifi`.
+#### Click Example
+```
+POST http://192.168.1.23/action
+{
+  "type": "click",
+  "x": 900,
+  "y": 1100,
+  "screen_w": 1080,
+  "screen_h": 2248,
+  "delay_hover": 50,
+  "delay_press": 80,
+  "double_check": 20
+}
+```
+
+#### Swipe Example
+```
+POST http://192.168.1.23/action
+{
+  "type": "swipe",
+  "x1": 200,
+  "y1": 1800,
+  "x2": 200,
+  "y2": 400,
+  "duration": 600,
+  "screen_w": 1240,
+  "screen_h": 2680,
+  "delay_hover": 30,
+  "delay_press": 40,
+  "delay_interval": 12,
+  "curve_strength": 25,
+  "double_check": 40
+}
+```
+
+### Commercial-Ready Traits
+1. Wacom HID identity with Android-native compatibility.
+2. Anti-detection motion algorithm (Bézier + randomness + jitter).
+3. Forced advertising payload for better discoverability.
+4. Connection monitoring via `NimBLEDevice::getServer()->getConnectedCount()`.
+5. Fully server-driven behavior—firmware only executes JSON commands.
+6. Remote tuning of every timing/curvature parameter, no OTA required.
 
 With these capabilities, the gateway already satisfies commercial prototype readiness for Android automation and large-scale control rooms.
 
