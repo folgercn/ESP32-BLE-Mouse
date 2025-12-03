@@ -26,7 +26,8 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
 3. **烧录**：将整个目录导入 IDE，选择对应的 ESP32 板卡与串口后上传。
 4. **首次配置**：
    - 设备会创建热点 `Wacom-Setup-XXXX`，用手机/PC 连接。
-   - 访问 `192.168.4.1`，输入 WiFi SSID/密码，可选静态 IP（IP/Gateway/Subnet 均可写）。
+   - 大多数手机会自动弹出配网 Portal 页面，在页面里填写 WiFi SSID/密码及可选静态 IP（IP/Gateway/Subnet 均可写）。
+   - 如果没有自动弹出 Portal，再手动访问 `192.168.4.1` 进行同样的配置。
 5. **工作模式**：
    - 连接到 WiFi 后自动根据 MAC/IP 生成蓝牙名称并开始广播。
    - HTTP 服务器监听 `http://<设备IP>/action`。
@@ -120,7 +121,7 @@ ESP32 BLE Mouse Gateway impersonates a **Wacom Digitizer** so Android accepts it
 1. Hardware: ESP32-DevKitC / ESP32-WROOM, USB or 5 V supply.
 2. Toolchain: Arduino IDE or PlatformIO with `NimBLE-Arduino`, `ArduinoJson`, `WiFiManager`.
 3. Flash: open the folder, select the proper board/port, upload.
-4. First boot: device spawns AP `Wacom-Setup-XXXX`; connect, visit `192.168.4.1`, enter WiFi plus optional static IP.
+4. First boot: device spawns AP `Wacom-Setup-XXXX`; connect, most phones will pop up the captive portal automatically—fill in WiFi and optional static IP there, or manually visit `192.168.4.1` if no portal appears.
 5. Run mode: after WiFi joins, BLE advertises with the dynamic name and HTTP server listens on `http://<device-ip>/action`.
 6. Reset WiFi: call `http://<device-ip>/reset_wifi` to erase credentials and reboot into setup AP.
 
