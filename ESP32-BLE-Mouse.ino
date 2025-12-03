@@ -9,6 +9,7 @@ BleDriver ble;
 WebServer server(80);
 
 // 辅助函数：解析参数
+// Helper: parse JSON options into ActionOptions
 ActionOptions parseOptions(JsonDocument& doc) {
     ActionOptions opts;
     if (doc.containsKey("screen_w")) opts.screenW = doc["screen_w"];
@@ -69,21 +70,29 @@ void setup() {
     randomSeed(analogRead(0));
 
     // 1. 自动配网 (阻塞式，直到连上 WiFi 才会继续)
+    // EN: Auto WiFi provisioning (blocking until WiFi is connected)
     // 第一次运行请用手机连接 "Wacom-Setup-xxxx" 热点进行配置
+    // EN: On first boot, connect to the "Wacom-Setup-xxxx" AP with a phone/PC to configure WiFi
     net.autoConfig();
     
     // 2. 网络通了之后，根据 IP 生成蓝牙名
+    // EN: After WiFi is up, generate BLE name based on IP
     String bleName = net.getDynamicBleName();
     ble.begin(bleName);
 
     // === 新增：重置 WiFi 的接口 ===
+    // EN: HTTP endpoint for resetting WiFi settings
     server.on("/reset_wifi", HTTP_GET, []() {
         server.send(200, "text/plain", "WiFi settings cleared! Restarting...");
         delay(1000);
         // 调用 NetHelper 里的清除功能 (需要确认 NetHelper.h 里有 resetSettings 声明)
+        // EN: Option A: call NetHelper::resetSettings (make sure it's declared)
         // 或者直接在这里调用 WiFiManager
+        // EN: Option B: clear WiFi credentials directly here
         WiFi.disconnect(true, true); // 清除保存的凭证
+        // EN: Clear stored WiFi credentials
         ESP.restart(); // 重启后就会重新出现 Wacom-Setup 热点
+        // EN: Reboot so that the Wacom-Setup AP shows up again
     });
     // ===========================
     
