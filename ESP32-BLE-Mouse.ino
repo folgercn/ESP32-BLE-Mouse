@@ -1,0 +1,97 @@
+#include <WebServer.h>
+#include <ArduinoJson.h>
+
+#include "NetHelper.h"
+#include "BleDriver.h"
+
+NetHelper net;
+BleDriver ble;
+WebServer server(80);
+
+// 辅助函数：解析参数
+ActionOptions parseOptions(JsonDocument& doc) {
+    ActionOptions opts;
+    if (doc.containsKey("screen_w")) opts.screenW = doc["screen_w"];
+    if (doc.containsKey("screen_h")) opts.screenH = doc["screen_h"];
+    if (doc.containsKey("delay_hover"))    opts.delayHover = doc["delay_hover"];
+    if (doc.containsKey("delay_press"))    opts.delayPress = doc["delay_press"];
+    if (doc.containsKey("delay_interval")) opts.delayInterval = doc["delay_interval"];
+    if (doc.containsKey("delay_release"))  opts.delayRelease = doc["delay_release"];
+    if (doc.containsKey("double_check"))   opts.delayDoubleCheck = doc["double_check"];
+    if (doc.containsKey("curve_strength")) opts.curveStrength = doc["curve_strength"];
+    return opts;
+}
+
+void handleAction() {
+    if (server.method() != HTTP_POST || server.args() == 0 || server.arg("plain") == "") {
+        server.send(400, "application/json", "{\"error\":\"Body missing\"}");
+        return;
+    }
+
+    String body = server.arg("plain");
+    JsonDocument doc; 
+    DeserializationError error = deserializeJson(doc, body);
+
+    if (error) {
+        server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
+    }
+
+    if (!ble.isConnected()) {
+        server.send(503, "application/json", "{\"error\":\"Bluetooth not connected\"}");
+        return;
+    }
+
+    String type = doc["type"].as<String>();
+    ActionOptions opts = parseOptions(doc);
+    
+    if (type == "click") {
+        int x = doc["x"];
+        int y = doc["y"];
+        ble.click(x, y, opts);
+    } else if (type == "swipe") {
+        int x1 = doc["x1"];
+        int y1 = doc["y1"];
+        int x2 = doc["x2"];
+        int y2 = doc["y2"];
+        int duration = doc["duration"]; 
+        ble.swipe(x1, y1, x2, y2, duration, opts);
+    } else {
+        server.send(400, "application/json", "{\"error\":\"Unknown type\"}");
+        return;
+    }
+
+    server.send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
+void setup() {
+    Serial.begin(115200);
+    randomSeed(analogRead(0));
+
+    // 1. 自动配网 (阻塞式，直到连上 WiFi 才会继续)
+    // 第一次运行请用手机连接 "Wacom-Setup-xxxx" 热点进行配置
+    net.autoConfig();
+    
+    // 2. 网络通了之后，根据 IP 生成蓝牙名
+    String bleName = net.getDynamicBleName();
+    ble.begin(bleName);
+
+    // === 新增：重置 WiFi 的接口 ===
+    server.on("/reset_wifi", HTTP_GET, []() {
+        server.send(200, "text/plain", "WiFi settings cleared! Restarting...");
+        delay(1000);
+        // 调用 NetHelper 里的清除功能 (需要确认 NetHelper.h 里有 resetSettings 声明)
+        // 或者直接在这里调用 WiFiManager
+        WiFi.disconnect(true, true); // 清除保存的凭证
+        ESP.restart(); // 重启后就会重新出现 Wacom-Setup 热点
+    });
+    // ===========================
+    
+    server.on("/action", HTTP_POST, handleAction);
+    server.begin();
+    Serial.println("[System] Ready. Control: http://" + net.getLocalIP() + "/action");
+}
+
+void loop() {
+    server.handleClient();
+}
