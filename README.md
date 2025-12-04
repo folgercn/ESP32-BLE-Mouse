@@ -88,10 +88,10 @@ POST http://192.168.1.23/action
 
 ## 自动上划 / Auto Swipe
 - 页面 / Page：WiFi + 蓝牙连接后访问 `http://<设备IP>/auto_swipe`，中英双语表单；保存立即生效并写入闪存。
-- 默认 / Defaults：`enabled=true`，`interval_min_sec=5`，`interval_max_sec=45`，`duration=250`，`length_percent=80`，`length_jitter_percent=15`，`duration_jitter_percent=20`，`delay_jitter_percent=15`，`double_tap_enabled=true`，`double_tap_prob_percent=30`，`double_tap_prob_jitter_percent=15`，`double_tap_interval_ms=120`，`double_tap_interval_jitter_percent=15`。
+- 默认 / Defaults：`enabled=true`，`interval_min_sec=5`，`interval_max_sec=45`，`duration=250`，`length_percent=80`，`length_jitter_percent=15`，`duration_jitter_percent=20`，`delay_jitter_percent=15`，`double_tap_enabled=true`，`double_tap_prob_percent=30`，`double_tap_prob_jitter_percent=15`，`double_tap_interval_ms=120`，`double_tap_interval_jitter_percent=15`，`double_tap_edge_min_ms=250`，`double_tap_edge_max_ms=800`。
 - 行为 / Behavior：开启后且 WiFi+BLE 均在线时，在 `x1,y1` 到 `x2,y2` 的矩形内随机起止点向上滑动；间隔在最小/最大秒数之间随机，时长按 `duration_jitter_percent` 浮动，长度按 `length_percent` 与 `length_jitter_percent` 缩放并抖动。
-- 点赞 / Double Tap：`double_tap_enabled` 控制是否在两次上划间隔内随机双击（默认开启）。开启时，根据概率在"下次上划前的间隔"内随机时刻触发双击点赞；概率按 `double_tap_prob_percent` 与 `double_tap_prob_jitter_percent` 浮动，双击间隔取自 `double_tap_interval_ms` 并按 `double_tap_interval_jitter_percent` 浮动，调用 `click count=2`。
-- API：`POST /auto_swipe` 支持 JSON 配置，键仅英文：`enabled`、`x1`/`y1`/`x2`/`y2`、`duration`、`screen_w`/`screen_h`、`delay_hover`/`delay_press`/`delay_interval`、`curve_strength`、`double_check`、`interval_min_sec`/`interval_max_sec`、`length_percent`、`length_jitter_percent`、`duration_jitter_percent`、`delay_jitter_percent`、`double_tap_enabled`、`double_tap_prob_percent`、`double_tap_prob_jitter_percent`、`double_tap_interval_ms`、`double_tap_interval_jitter_percent`。状态接口 `GET /auto_swipe/status` 返回当前配置与剩余计时。
+- 点赞 / Double Tap：`double_tap_enabled` 控制是否在两次上划间隔内随机双击（默认开启）。开启时，根据概率（含 `double_tap_prob_jitter_percent` 波动）决定是否点赞；双击间隔取自 `double_tap_interval_ms` 并按 `double_tap_interval_jitter_percent` 波动。点赞时间随机靠近“上次滑动结束”或“下次滑动开始”两段安全缓冲内，避免与滑动太贴边；坐标落在滑动矩形中心附近并抖动。
+- API：`POST /auto_swipe` 支持 JSON 配置，键仅英文：`enabled`、`x1`/`y1`/`x2`/`y2`、`duration`、`screen_w`/`screen_h`、`delay_hover`/`delay_press`/`delay_interval`、`curve_strength`、`double_check`、`interval_min_sec`/`interval_max_sec`、`length_percent`、`length_jitter_percent`、`duration_jitter_percent`、`delay_jitter_percent`、`double_tap_enabled`、`double_tap_prob_percent`、`double_tap_prob_jitter_percent`、`double_tap_interval_ms`、`double_tap_interval_jitter_percent`、`double_tap_edge_min_ms`、`double_tap_edge_max_ms`。状态接口 `GET /auto_swipe/status` 返回当前配置与剩余计时。
 - 功能现状 / Status：自动上划、随机路径/时长/间隔、间隔内随机点赞、JSON/表单配置及状态接口均可用，配置与状态字段仅用英文键。
 
 ## JSON 参数说明
