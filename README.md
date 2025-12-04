@@ -179,6 +179,25 @@ POST http://192.168.1.23/action
 }
 ```
 
+### Auto Swipe
+- **Page**: After WiFi + BLE connection, visit `http://<device-ip>/auto_swipe` for a bilingual (CN/EN) configuration form; changes take effect immediately and are saved to flash.
+- **Defaults**: `enabled=true`, `interval_min_sec=5`, `interval_max_sec=45`, `duration=250`, `length_percent=80`, `length_jitter_percent=15`, `duration_jitter_percent=20`, `delay_jitter_percent=15`, `double_tap_enabled=true`, `double_tap_prob_percent=30`, `double_tap_prob_jitter_percent=15`, `double_tap_interval_ms=120`, `double_tap_interval_jitter_percent=15`.
+- **Behavior**: When enabled and both WiFi+BLE are online, performs random upward swipes within the rectangle defined by `x1,y1` to `x2,y2`; interval randomized between min/max seconds, duration fluctuates by `duration_jitter_percent`, length scaled by `length_percent` and jittered by `length_jitter_percent`.
+- **Double Tap**: `double_tap_enabled` controls whether to randomly double-tap during the interval between two swipes (default: enabled). When enabled, triggers double-tap likes at random moments within the "interval before next swipe" based on probability; probability fluctuates by `double_tap_prob_percent` and `double_tap_prob_jitter_percent`, double-tap interval taken from `double_tap_interval_ms` and fluctuated by `double_tap_interval_jitter_percent`, calls `click count=2`.
+- **API**: `POST /auto_swipe` accepts JSON config with English keys only: `enabled`, `x1`/`y1`/`x2`/`y2`, `duration`, `screen_w`/`screen_h`, `delay_hover`/`delay_press`/`delay_interval`, `curve_strength`, `double_check`, `interval_min_sec`/`interval_max_sec`, `length_percent`, `length_jitter_percent`, `duration_jitter_percent`, `delay_jitter_percent`, `double_tap_enabled`, `double_tap_prob_percent`, `double_tap_prob_jitter_percent`, `double_tap_interval_ms`, `double_tap_interval_jitter_percent`. Status endpoint `GET /auto_swipe/status` returns current config and remaining timer.
+- **Status**: Auto swipe, random path/duration/interval, random likes during intervals, JSON/form config and status endpoints are all available; config and status fields use English keys only.
+
+### JSON Parameter Reference
+| Field | Purpose |
+| --- | --- |
+| `screen_w / screen_h` | Target screen pixels, internally mapped to 0-32767 |
+| `delay_hover` | Hover time after movement completes, before press |
+| `delay_press` | Pause from press to start of swipe |
+| `delay_interval` | Step interval during swipe; smaller values mean smoother motion |
+| `delay_release` | Cooldown period after release |
+| `double_check` | Double-Release delay to avoid system misjudgment |
+| `curve_strength` | Bézier curve bending degree, percentage |
+
 ### Commercial-Ready Traits
 1. Wacom HID identity with Android-native compatibility.
 2. Anti-detection motion algorithm (Bézier + randomness + jitter).
