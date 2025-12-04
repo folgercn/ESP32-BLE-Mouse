@@ -1,12 +1,15 @@
 #include <WebServer.h>
 #include <ArduinoJson.h>
+#include <WiFi.h>
 
 #include "NetHelper.h"
 #include "BleDriver.h"
+#include "AutoSwipe.h"
 
 NetHelper net;
 BleDriver ble;
 WebServer server(80);
+AutoSwipeManager autoSwipe;
 
 // 辅助函数：解析参数
 // Helper: parse JSON options into ActionOptions
@@ -80,22 +83,17 @@ void setup() {
     String bleName = net.getDynamicBleName();
     ble.begin(bleName);
 
-    // === 新增：重置 WiFi 的接口 ===
-    // EN: HTTP endpoint for resetting WiFi settings
+    // 重置 WiFi 的接口
     server.on("/reset_wifi", HTTP_GET, []() {
         server.send(200, "text/plain", "WiFi settings cleared! Restarting...");
         delay(1000);
-        // 调用 NetHelper 里的清除功能 (需要确认 NetHelper.h 里有 resetSettings 声明)
-        // EN: Option A: call NetHelper::resetSettings (make sure it's declared)
-        // 或者直接在这里调用 WiFiManager
-        // EN: Option B: clear WiFi credentials directly here
         WiFi.disconnect(true, true); // 清除保存的凭证
-        // EN: Clear stored WiFi credentials
         ESP.restart(); // 重启后就会重新出现 Wacom-Setup 热点
-        // EN: Reboot so that the Wacom-Setup AP shows up again
     });
-    // ===========================
     
+    // 自动上划接口注册
+    autoSwipe.begin(&server, &ble);
+
     server.on("/action", HTTP_POST, handleAction);
     server.begin();
     Serial.println("[System] Ready. Control: http://" + net.getLocalIP() + "/action");
@@ -103,4 +101,5 @@ void setup() {
 
 void loop() {
     server.handleClient();
+    autoSwipe.tick();
 }

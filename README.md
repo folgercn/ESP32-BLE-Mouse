@@ -81,6 +81,12 @@ POST http://192.168.1.23/action
 }
 ```
 
+## 自动上划 / Auto Swipe
+- 页面 / Page：WiFi + 蓝牙连接后访问 `http://<设备IP>/auto_swipe`，中英双语表单；保存立即生效并写入闪存。
+- 默认 / Defaults：与示例滑动一致，`enabled=true`，`interval_min_sec=5`，`interval_max_sec=45`，`duration=250`，`length_percent=80`，`length_jitter_percent=15`，`duration_jitter_percent=20`，`delay_jitter_percent=15`。
+- 行为 / Behavior：开启后且 WiFi+BLE 均在线时，在 `x1,y1` 到 `x2,y2` 的矩形内随机起止点向上滑动；间隔在最小/最大秒数之间随机，时长按 `duration_jitter_percent` 浮动，长度按 `length_percent` 与 `length_jitter_percent` 缩放并抖动。
+- API：`POST /auto_swipe` 支持 JSON 配置，键仅英文：`enabled`、`x1`/`y1`/`x2`/`y2`、`duration`、`screen_w`/`screen_h`、`delay_hover`/`delay_press`/`delay_interval`、`curve_strength`、`double_check`、`interval_min_sec`/`interval_max_sec`、`length_percent`、`length_jitter_percent`、`duration_jitter_percent`、`delay_jitter_percent`。状态接口 `GET /auto_swipe/status` 返回当前配置与剩余计时。
+
 ## JSON 参数说明
 | 字段 | 作用 |
 | --- | --- |
@@ -180,4 +186,3 @@ POST http://192.168.1.23/action
 6. Remote tuning of every timing/curvature parameter, no OTA required.
 
 With these capabilities, the gateway already satisfies commercial prototype readiness for Android automation and large-scale control rooms.
-
