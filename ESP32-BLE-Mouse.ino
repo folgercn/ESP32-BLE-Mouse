@@ -11,6 +11,15 @@ BleDriver ble;
 WebServer server(80);
 AutoSwipeManager autoSwipe;
 
+// 引脚定义
+const int PIN_BOOT = 0; // BOOT 按键 (IO0, 低电平为按下)
+const int PIN_LED  = 2; // 板载蓝色 LED
+
+// BOOT 长按检测状态
+bool bootPressed = false;
+unsigned long bootPressAt = 0;
+bool resettingNow = false;
+
 // 辅助函数：解析参数
 // Helper: parse JSON options into ActionOptions
 ActionOptions parseOptions(JsonDocument& doc) {
@@ -21,6 +30,8 @@ ActionOptions parseOptions(JsonDocument& doc) {
     if (doc.containsKey("delay_press"))    opts.delayPress = doc["delay_press"];
     if (doc.containsKey("delay_interval")) opts.delayInterval = doc["delay_interval"];
     if (doc.containsKey("delay_release"))  opts.delayRelease = doc["delay_release"];
+    if (doc.containsKey("delay_multi_click_interval")) opts.delayMultiClickInterval = doc["delay_multi_click_interval"];
+    if (doc.containsKey("multi_interval")) opts.delayMultiClickInterval = doc["multi_interval"];
     if (doc.containsKey("double_check"))   opts.delayDoubleCheck = doc["double_check"];
     if (doc.containsKey("curve_strength")) opts.curveStrength = doc["curve_strength"];
     return opts;
@@ -52,7 +63,8 @@ void handleAction() {
     if (type == "click") {
         int x = doc["x"];
         int y = doc["y"];
-        ble.click(x, y, opts);
+        int count = doc.containsKey("count") ? max(1, doc["count"].as<int>()) : 1;
+        ble.click(x, y, count, opts);
     } else if (type == "swipe") {
         int x1 = doc["x1"];
         int y1 = doc["y1"];
@@ -71,6 +83,10 @@ void handleAction() {
 void setup() {
     Serial.begin(115200);
     randomSeed(analogRead(0));
+
+    pinMode(PIN_BOOT, INPUT_PULLUP);
+    pinMode(PIN_LED, OUTPUT);
+    digitalWrite(PIN_LED, LOW);
 
     // 1. 自动配网 (阻塞式，直到连上 WiFi 才会继续)
     // EN: Auto WiFi provisioning (blocking until WiFi is connected)
@@ -102,4 +118,34 @@ void setup() {
 void loop() {
     server.handleClient();
     autoSwipe.tick();
+
+    // 检测 BOOT 按键长按以恢复出厂设置
+    int btn = digitalRead(PIN_BOOT);
+    if (btn == LOW) {
+        if (!bootPressed) {
+            bootPressed = true;
+            bootPressAt = millis();
+        } else if (!resettingNow && millis() - bootPressAt >= 2000) {
+            resettingNow = true;
+
+            // LED 快闪 5 次
+            for (int i = 0; i < 5; i++) {
+                digitalWrite(PIN_LED, HIGH);
+                delay(120);
+                digitalWrite(PIN_LED, LOW);
+                delay(120);
+            }
+
+            // 清除 BLE 配对与 WiFi 配置
+            ble.resetPairing();
+            WiFi.disconnect(true, true); // 断开并清空凭证
+            net.resetSettings();         // 清除 WiFiManager/静态 IP
+
+            Serial.println("Rebooting..");
+            delay(200);
+            ESP.restart();
+        }
+    } else {
+        bootPressed = false;
+    }
 }

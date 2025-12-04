@@ -11,6 +11,9 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
 - **稳定连接**：直接查询 NimBLE 协议栈连接数判断在线状态；自定义广播包解决部分机型搜不到设备的问题。
 - **JSON 驱动**：屏幕分辨率、速度、延迟、曲率等均由上位机 JSON 配置，固件无需重新编译。
 - **工程化网络**：WiFiManager 自动配网 + 自定义静态 IP 表单；支持 `/reset_wifi` 接口一键恢复热点模式。
+- **可靠重连**：默认保留历史配对，设备重启后已配对手机会自动重连；需要清除配对时再手动触发。
+- **一键恢复**：长按板载 BOOT 键 2 秒，LED 快闪 5 次后清除 BLE 配对和 WiFi 配置并重启；`/auto_swipe` 页面也有“重置蓝牙配对”按钮。
+- **随机点赞**：自动上划间隔内可按概率随机触发双击点赞，概率/间隔/缓冲均支持波动。
 
 ## 系统结构
 - `ESP32-BLE-Mouse.ino`：HTTP 服务、JSON 动作解析、全局生命周期。
@@ -41,7 +44,7 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
   - `screen_w` / `screen_h`: 设备屏幕像素（默认 1080x2248）
   - `delay_hover` / `delay_press` / `delay_interval` / `delay_release` / `double_check`: 毫秒延迟
   - `curve_strength`: 0-100，决定贝塞尔弯曲程度
-- **click 专属**：`x`, `y`
+- **click 专属**：`x`, `y`，可选 `count`（默认 1，>1 变为连点）、`multi_interval`（连点间隔 ms，默认 30）
 - **swipe 专属**：`x1`, `y1`, `x2`, `y2`, `duration`
 
 点击示例：
@@ -52,6 +55,8 @@ POST http://192.168.1.23/action
   "type": "click",
   "x": 900,
   "y": 1100,
+  "count": 2,
+  "multi_interval": 40,
   "screen_w": 1080,
   "screen_h": 2248,
   "delay_hover": 50,
@@ -119,6 +124,8 @@ ESP32 BLE Mouse Gateway impersonates a **Wacom Digitizer** so Android accepts it
 - **Link Reliability**: Connection state reads directly from the NimBLE stack; handcrafted advertising fixes discoverability gaps.
 - **JSON-Driven Logic**: Resolution, delays, curve strength and motion speed all controlled by server JSON—no firmware rebuild.
 - **Operational Networking**: WiFiManager captive portal with optional static IP form; `GET /reset_wifi` clears credentials remotely.
+- **Persisted Pairing**: Bonds are kept across reboots so phones auto-reconnect; clear bonds only via BOOT long-press or the Auto Swipe page button.
+- **One-Key Recovery**: Hold BOOT (GPIO0) ~2s → LED (GPIO2) flashes 5x, then clears BLE bonds + WiFi creds and reboots. `/auto_swipe` also exposes a “Reset BLE Pairing” button.
 
 ### Architecture
 - `ESP32-BLE-Mouse.ino`: Hosts HTTP server, parses JSON, manages lifecycle.
@@ -138,7 +145,7 @@ ESP32 BLE Mouse Gateway impersonates a **Wacom Digitizer** so Android accepts it
 POST /action
 Headers: Content-Type: application/json
 type: "click" | "swipe"
-click -> x, y
+click -> x, y, optional count (default 1; >1 = multi-click), optional multi_interval (gap between clicks, ms, default 30)
 swipe -> x1, y1, x2, y2, duration
 common -> screen_w, screen_h, delay_hover, delay_press, delay_interval,
           delay_release, double_check, curve_strength

@@ -1,7 +1,6 @@
 #include "BleDriver.h"
 
 // Wacom 描述符 (保持不变)
-// EN: Wacom HID report descriptor (do not change)
 static const uint8_t hidReportDescriptor[] = {
   0x05, 0x0D, 0x09, 0x02, 0xA1, 0x01, 0x85, 0x01, 0x09, 0x20, 0xA1, 0x00,
   0x09, 0x42, 0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x01, 0x81, 0x02,
@@ -13,10 +12,12 @@ static const uint8_t hidReportDescriptor[] = {
 class ConnectionCallbacks : public NimBLEServerCallbacks {
     void onConnect(NimBLEServer* pServer) {
         Serial.println(">>> [BLE] Connected! <<<");
+        // 请求极速模式 (降低延迟)
         pServer->updateConnParams(pServer->getPeerInfo(0).getConnHandle(), 6, 6, 0, 100);
     }
     void onDisconnect(NimBLEServer* pServer) {
         Serial.println(">>> [BLE] Disconnected! <<<");
+        // 断开后立刻重新广播，允许别人连接
         NimBLEDevice::startAdvertising();
     }
 };
@@ -24,6 +25,10 @@ class ConnectionCallbacks : public NimBLEServerCallbacks {
 void BleDriver::begin(String deviceName) {
     Serial.println("[BLE] Init: " + deviceName);
     NimBLEDevice::init(deviceName.c_str());
+    
+    // 保留历史配对，便于手机自动重连；如需手动清除，走 BOOT 长按或网页重置
+    
+    // 开启安全认证 (安卓必须)
     NimBLEDevice::setSecurityAuth(true, true, true);
 
     NimBLEServer* pServer = NimBLEDevice::createServer();
@@ -39,14 +44,23 @@ void BleDriver::begin(String deviceName) {
     _hid->startServices();
 
     NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
-    pAdvertising->setAppearance(0x03C2);
+    pAdvertising->setAppearance(0x03C2); // Mouse appearance
     pAdvertising->addServiceUUID(_hid->getHidService()->getUUID());
 
+    // === 修复2：拆分广播包，兼容三星和苹果 ===
+    
+    // 包1：主广播包 (必须包含 UUID，否则苹果/三星不认)
     NimBLEAdvertisementData advData;
-    advData.setName(deviceName.c_str());
-    advData.setManufacturerData("ESP32");
-    advData.setFlags(0x06);
+    advData.setFlags(0x06); // General Discovery Mode
+    advData.setPartialServices(NimBLEUUID("1812")); // 明确告诉手机：我是 HID 设备
+    advData.setAppearance(0x03C2);
     pAdvertising->setAdvertisementData(advData);
+
+    // 包2：扫描响应包 (放入长名字)
+    // 手机扫到主包后，会主动问“你叫啥”，此时发这个包
+    NimBLEAdvertisementData scanData;
+    scanData.setName(deviceName.c_str());
+    pAdvertising->setScanResponseData(scanData);
 
     pAdvertising->start();
     _hid->setBatteryLevel(100);
@@ -54,6 +68,12 @@ void BleDriver::begin(String deviceName) {
 
 bool BleDriver::isConnected() {
     return NimBLEDevice::getServer()->getConnectedCount() > 0;
+}
+
+void BleDriver::resetPairing() {
+    Serial.println("[BLE] Reset pairing + restart advertising");
+    NimBLEDevice::deleteAllBonds();
+    NimBLEDevice::startAdvertising();
 }
 
 long BleDriver::mapVal(int val, int maxPixel) {
@@ -73,29 +93,30 @@ void BleDriver::sendRaw(int x, int y, uint8_t state) {
 }
 
 void BleDriver::click(int x, int y, ActionOptions opts) {
-    // 使用传入的宽高进行映射
-    // EN: Map coordinates according to provided screen size
+    click(x, y, 1, opts);
+}
+
+void BleDriver::click(int x, int y, int count, ActionOptions opts) {
     long tx = mapVal(x, opts.screenW);
     long ty = mapVal(y, opts.screenH);
     
-    // 1. 悬停
-    // EN: Step 1: hover at target position
+    if (count < 1) count = 1;
+
     sendRaw(tx, ty, 0x04); 
     if(opts.delayHover > 0) delay(opts.delayHover);      
     
-    // 2. 按下
-    // EN: Step 2: press down
-    sendRaw(tx, ty, 0x05); 
-    if(opts.delayPress > 0) delay(opts.delayPress); // 这里复用 delayPress 作为点击持续时间
-    // EN: Reuse delayPress as click duration
+    for (int i = 0; i < count; i++) {
+        sendRaw(tx, ty, 0x05); 
+        if(opts.delayPress > 0) delay(opts.delayPress); 
+        
+        sendRaw(tx, ty, 0x04); 
+        if (i < count - 1) {
+            if(opts.delayMultiClickInterval > 0) delay(opts.delayMultiClickInterval);
+        }
+    }
     
-    // 3. 抬起
-    // EN: Step 3: release
-    sendRaw(tx, ty, 0x04); 
     if(opts.delayRelease > 0) delay(opts.delayRelease);
     
-    // 4. 双重确认
-    // EN: Step 4: extra release for double-check
     if(opts.delayDoubleCheck > 0) {
         delay(opts.delayDoubleCheck);
         sendRaw(tx, ty, 0x04); 
@@ -108,18 +129,10 @@ void BleDriver::swipe(int x1, int y1, int x2, int y2, int duration, ActionOption
     long tx2 = mapVal(x2, opts.screenW);
     long ty2 = mapVal(y2, opts.screenH);
 
-    // 计算控制点 (贝塞尔曲线)
-    // EN: Compute control point for quadratic Bézier curve
     long midX = (tx1 + tx2) / 2;
     long midY = (ty1 + ty2) / 2;
-    
-    // 计算偏移量：根据传入的百分比 curveStrength
-    // EN: Compute offset based on curveStrength percentage
     long dist = sqrt(pow(tx2 - tx1, 2) + pow(ty2 - ty1, 2));
     long offset = dist * (opts.curveStrength / 100.0); 
-    
-    // 随机决定方向 (这个还是保留随机性比较好，或者你也想把随机种子放进 JSON?)
-    // EN: Randomly choose bending direction (could also be seeded via JSON if needed)
     if (random(0, 2) == 0) offset = -offset;
 
     long cx = midX;
@@ -127,25 +140,17 @@ void BleDriver::swipe(int x1, int y1, int x2, int y2, int duration, ActionOption
     if (abs(tx2 - tx1) < abs(ty2 - ty1)) cx += offset;
     else cy += offset;
 
-    // 1. 悬停
-    // EN: Step 1: hover at start point
     sendRaw(tx1, ty1, 0x04); 
     if(opts.delayHover > 0) delay(opts.delayHover);
 
-    // 2. 按下
-    // EN: Step 2: press down before moving
     sendRaw(tx1, ty1, 0x05); 
     if(opts.delayPress > 0) delay(opts.delayPress);
 
-    // 3. 移动
-    // EN: Step 3: move along the Bézier curve
     int stepTime = opts.delayInterval;
-    if (stepTime <= 0) stepTime = 10; // 保护
-    // EN: Safety guard for minimum step interval
+    if (stepTime <= 0) stepTime = 10;
     
     int steps = duration / stepTime;
     if (steps < 2) steps = 2;
-    // EN: Ensure at least two steps for a valid curve
 
     for (int i = 1; i <= steps; i++) {
         float t = (float)i / steps;
@@ -157,12 +162,9 @@ void BleDriver::swipe(int x1, int y1, int x2, int y2, int duration, ActionOption
         long curveY = (uu * ty1) + (2 * u * t * cy) + (tt * ty2);
 
         sendRaw(curveX, curveY, 0x05); 
-        delay(stepTime); // 使用传入的步进间隔
-        // EN: Use provided interval between each swipe step
+        delay(stepTime);
     }
     
-    // 4. 抬起
-    // EN: Step 4: release at end point (with optional double-check)
     sendRaw(tx2, ty2, 0x04);
     if(opts.delayDoubleCheck > 0) {
         delay(opts.delayDoubleCheck);

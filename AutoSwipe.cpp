@@ -23,6 +23,12 @@ void AutoSwipeManager::normalizeConfig() {
     cfg.lengthJitterPercent = clampInt(cfg.lengthJitterPercent, 0, 80);
     cfg.durationJitterPercent = clampInt(cfg.durationJitterPercent, 0, 80);
     cfg.delayJitterPercent = clampInt(cfg.delayJitterPercent, 0, 80);
+    cfg.doubleTapProbPercent = clampInt(cfg.doubleTapProbPercent, 0, 100);
+    cfg.doubleTapProbJitterPercent = clampInt(cfg.doubleTapProbJitterPercent, 0, 100);
+    if (cfg.doubleTapIntervalMs < 40) cfg.doubleTapIntervalMs = 40;
+    cfg.doubleTapIntervalJitterPercent = clampInt(cfg.doubleTapIntervalJitterPercent, 0, 200);
+    if (cfg.doubleTapEdgeMinMs < 100) cfg.doubleTapEdgeMinMs = 100;
+    if (cfg.doubleTapEdgeMaxMs < cfg.doubleTapEdgeMinMs + 50) cfg.doubleTapEdgeMaxMs = cfg.doubleTapEdgeMinMs + 50;
 }
 
 // Apply JSON fields (only English keys) into config
@@ -50,6 +56,13 @@ void AutoSwipeManager::applyJsonToConfig(JsonDocument& doc, AutoSwipeConfig& c) 
     if (doc.containsKey("length_jitter_percent")) c.lengthJitterPercent = doc["length_jitter_percent"];
     if (doc.containsKey("duration_jitter_percent")) c.durationJitterPercent = doc["duration_jitter_percent"];
     if (doc.containsKey("delay_jitter_percent")) c.delayJitterPercent = doc["delay_jitter_percent"];
+    if (doc.containsKey("double_tap_enabled")) c.doubleTapEnabled = doc["double_tap_enabled"];
+    if (doc.containsKey("double_tap_prob_percent")) c.doubleTapProbPercent = doc["double_tap_prob_percent"];
+    if (doc.containsKey("double_tap_prob_jitter_percent")) c.doubleTapProbJitterPercent = doc["double_tap_prob_jitter_percent"];
+    if (doc.containsKey("double_tap_interval_ms")) c.doubleTapIntervalMs = doc["double_tap_interval_ms"];
+    if (doc.containsKey("double_tap_interval_jitter_percent")) c.doubleTapIntervalJitterPercent = doc["double_tap_interval_jitter_percent"];
+    if (doc.containsKey("double_tap_edge_min_ms")) c.doubleTapEdgeMinMs = doc["double_tap_edge_min_ms"];
+    if (doc.containsKey("double_tap_edge_max_ms")) c.doubleTapEdgeMaxMs = doc["double_tap_edge_max_ms"];
 }
 
 // Load config from NVS (with defaults if missing/invalid)
@@ -63,7 +76,7 @@ void AutoSwipeManager::loadConfig() {
         return;
     }
 
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<640> doc;
     if (!deserializeJson(doc, raw)) {
         applyJsonToConfig(doc, cfg);
     }
@@ -72,7 +85,7 @@ void AutoSwipeManager::loadConfig() {
 
 // Save config to NVS as JSON string
 void AutoSwipeManager::saveConfig(const AutoSwipeConfig& c) {
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<640> doc;
     doc["enabled"] = c.enabled;
     doc["x1"] = c.x1; doc["y1"] = c.y1;
     doc["x2"] = c.x2; doc["y2"] = c.y2;
@@ -89,6 +102,13 @@ void AutoSwipeManager::saveConfig(const AutoSwipeConfig& c) {
     doc["length_jitter_percent"] = c.lengthJitterPercent;
     doc["duration_jitter_percent"] = c.durationJitterPercent;
     doc["delay_jitter_percent"] = c.delayJitterPercent;
+    doc["double_tap_enabled"] = c.doubleTapEnabled;
+    doc["double_tap_prob_percent"] = c.doubleTapProbPercent;
+    doc["double_tap_prob_jitter_percent"] = c.doubleTapProbJitterPercent;
+    doc["double_tap_interval_ms"] = c.doubleTapIntervalMs;
+    doc["double_tap_interval_jitter_percent"] = c.doubleTapIntervalJitterPercent;
+    doc["double_tap_edge_min_ms"] = c.doubleTapEdgeMinMs;
+    doc["double_tap_edge_max_ms"] = c.doubleTapEdgeMaxMs;
 
     String out;
     serializeJson(doc, out);
@@ -113,7 +133,8 @@ String AutoSwipeManager::renderPage(const AutoSwipeConfig& c, const String& mess
                   "padding:10px;margin-top:4px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);"
                   "background:rgba(255,255,255,0.08);color:#e7f2ff;font-size:14px;}"
                   "button{background:#1f7aec;border:0;cursor:pointer;font-weight:700;margin-top:16px;}"
-                  "button:hover{background:#2c8eff;}small{color:#99b5d6;} .msg{margin:8px 0;color:#5cf29c;}"
+                  "button:hover{background:#2c8eff;}button.danger{background:#c63c3c;}button.danger:hover{background:#de4f4f;}"
+                  "small{color:#99b5d6;} .msg{margin:8px 0;color:#5cf29c;}"
                   ".row{display:flex;gap:12px;} .row .col{flex:1;} .card{margin-top:16px;"
                   "padding:12px;border-radius:10px;background:rgba(255,255,255,0.03);} </style></head><body>";
     html += "<h1>自动上划 / Auto Swipe</h1>";
@@ -155,7 +176,26 @@ String AutoSwipeManager::renderPage(const AutoSwipeConfig& c, const String& mess
             "<label>双重抬起间隔(ms) / Double release delay<input type='number' name='double_check' value='" + String(c.doubleCheck) + "'></label>"
             "</fieldset>";
 
+    html += "<fieldset><legend>点赞 / Double Tap</legend>"
+            "<label>开启随机点赞 / Enable random double tap"
+            "<input type='checkbox' name='double_tap_enabled' value='1' ";
+    if (c.doubleTapEnabled) html += "checked";
+    html += "></label>"
+            "<label>概率基准(%) / Base probability<input type='number' name='double_tap_prob_percent' value='" + String(c.doubleTapProbPercent) + "'></label>"
+            "<label>概率波动(%) / Probability jitter<input type='number' name='double_tap_prob_jitter_percent' value='" + String(c.doubleTapProbJitterPercent) + "'></label>"
+            "<label>双击间隔基准(ms) / Double-tap gap<input type='number' name='double_tap_interval_ms' value='" + String(c.doubleTapIntervalMs) + "'></label>"
+            "<label>双击间隔波动(%) / Gap jitter<input type='number' name='double_tap_interval_jitter_percent' value='" + String(c.doubleTapIntervalJitterPercent) + "'></label>"
+            "<label>离上划起止的安全缓冲(ms) / Edge buffer range"
+            "<div class='row'><div class='col'><input type='number' name='double_tap_edge_min_ms' value='" + String(c.doubleTapEdgeMinMs) + "'></div>"
+            "<div class='col'><input type='number' name='double_tap_edge_max_ms' value='" + String(c.doubleTapEdgeMaxMs) + "'></div></div>"
+            "<small>点赞在滑动前完成；时间随机落在两个滑动间隔的中段，距离前后边界都有随机缓冲。</small>"
+            "</label>"
+            "</fieldset>";
+
     html += "<button type='submit'>保存 / Save</button>"
+            "</form>"
+            "<form method='POST' action='/auto_swipe/reset_ble'>"
+            "<button type='submit' class='danger'>重置蓝牙配对 / Reset BLE Pairing</button>"
             "</form>"
             "<div class='card'><small>提示 / Tip：保存后立即生效；蓝牙+WiFi 在线才会自动上划，起止点与时长会根据上述随机范围浮动。</small></div>"
             "</body></html>";
@@ -197,6 +237,13 @@ void AutoSwipeManager::handlePost() {
         if (server->hasArg("delay_interval")) newCfg.delayInterval = server->arg("delay_interval").toInt();
         if (server->hasArg("curve_strength")) newCfg.curveStrength = server->arg("curve_strength").toInt();
         if (server->hasArg("double_check")) newCfg.doubleCheck = server->arg("double_check").toInt();
+        newCfg.doubleTapEnabled = server->hasArg("double_tap_enabled");
+        if (server->hasArg("double_tap_prob_percent")) newCfg.doubleTapProbPercent = server->arg("double_tap_prob_percent").toInt();
+        if (server->hasArg("double_tap_prob_jitter_percent")) newCfg.doubleTapProbJitterPercent = server->arg("double_tap_prob_jitter_percent").toInt();
+        if (server->hasArg("double_tap_interval_ms")) newCfg.doubleTapIntervalMs = server->arg("double_tap_interval_ms").toInt();
+        if (server->hasArg("double_tap_interval_jitter_percent")) newCfg.doubleTapIntervalJitterPercent = server->arg("double_tap_interval_jitter_percent").toInt();
+        if (server->hasArg("double_tap_edge_min_ms")) newCfg.doubleTapEdgeMinMs = server->arg("double_tap_edge_min_ms").toInt();
+        if (server->hasArg("double_tap_edge_max_ms")) newCfg.doubleTapEdgeMaxMs = server->arg("double_tap_edge_max_ms").toInt();
         if (server->hasArg("interval_min_sec")) newCfg.intervalMinSec = server->arg("interval_min_sec").toInt();
         if (server->hasArg("interval_max_sec")) newCfg.intervalMaxSec = server->arg("interval_max_sec").toInt();
         if (server->hasArg("length_percent")) newCfg.lengthPercent = server->arg("length_percent").toInt();
@@ -242,13 +289,38 @@ void AutoSwipeManager::handleStatus() {
     doc["length_jitter_percent"] = cfg.lengthJitterPercent;
     doc["duration_jitter_percent"] = cfg.durationJitterPercent;
     doc["delay_jitter_percent"] = cfg.delayJitterPercent;
+    doc["double_tap_enabled"] = cfg.doubleTapEnabled;
+    doc["double_tap_prob_percent"] = cfg.doubleTapProbPercent;
+    doc["double_tap_prob_jitter_percent"] = cfg.doubleTapProbJitterPercent;
+    doc["double_tap_interval_ms"] = cfg.doubleTapIntervalMs;
+    doc["double_tap_interval_jitter_percent"] = cfg.doubleTapIntervalJitterPercent;
+    doc["double_tap_edge_min_ms"] = cfg.doubleTapEdgeMinMs;
+    doc["double_tap_edge_max_ms"] = cfg.doubleTapEdgeMaxMs;
     doc["wifi"] = (WiFi.status() == WL_CONNECTED);
     doc["ble"] = ble && ble->isConnected();
     doc["next_ms"] = nextSwipeAt == 0 ? 0 : (long)(nextSwipeAt - millis());
+    doc["next_like_ms"] = nextLikeAt == 0 ? 0 : (long)(nextLikeAt - millis());
 
     String out;
     serializeJson(doc, out);
     server->send(200, "application/json", out);
+}
+
+// HTTP POST handler to reset BLE pairing/bonds
+void AutoSwipeManager::handleResetBle() {
+    if (!ble) {
+        server->send(500, "application/json", "{\"error\":\"BLE 未初始化\"}");
+        return;
+    }
+
+    ble->resetPairing();
+    bool wantJson = server->header("Accept").indexOf("application/json") >= 0 ||
+                    server->header("Content-Type").indexOf("application/json") >= 0;
+    if (wantJson) {
+        server->send(200, "application/json", "{\"status\":\"ok\",\"note\":\"蓝牙配对已重置\"}");
+    } else {
+        server->send(200, "text/html", renderPage(cfg, "蓝牙配对已重置，请重新搜索并连接"));
+    }
 }
 
 // Randomize next interval in ms
@@ -262,6 +334,90 @@ unsigned long AutoSwipeManager::randomIntervalMs() {
 // Schedule next swipe timestamp
 void AutoSwipeManager::scheduleNext() {
     nextSwipeAt = millis() + randomIntervalMs();
+    scheduleLike();
+}
+
+// 计划下一次点赞时刻（在两次滑动之间）
+void AutoSwipeManager::scheduleLike() {
+    nextLikeAt = 0;
+    if (!cfg.doubleTapEnabled || !ble) return;
+    unsigned long now = millis();
+    if (nextSwipeAt <= now) return;
+
+    unsigned long interval = nextSwipeAt - now;
+    int edgeMin = cfg.doubleTapEdgeMinMs;
+    int edgeMax = cfg.doubleTapEdgeMaxMs;
+    // 需要至少前后各留一段缓冲
+    if (interval <= (unsigned long)(edgeMin + edgeMax + 120)) return;
+
+    int prob = cfg.doubleTapProbPercent;
+    int jitter = cfg.doubleTapProbJitterPercent;
+    int delta = (prob * jitter + 50) / 100;
+    prob = clampInt(prob + random(-delta, delta + 1), 0, 100);
+    if (random(0, 100) >= prob) return;
+
+    // 选择靠近上次滑动结束或靠近下一次滑动开始的窗口
+    struct Window { unsigned long a; unsigned long b; };
+    Window win[2];
+    int winCount = 0;
+
+    if (lastSwipeEndedAt > 0) {
+        unsigned long a = lastSwipeEndedAt + edgeMin;
+        unsigned long b = lastSwipeEndedAt + edgeMax;
+        if (b > now + 20) {
+            a = max(a, now + 20);
+            if (a + 20 < b && a < nextSwipeAt - edgeMin) {
+                b = min(b, nextSwipeAt - edgeMin);
+                if (b > a + 20) win[winCount++] = {a, b};
+            }
+        }
+    }
+
+    {
+        unsigned long a = nextSwipeAt > (unsigned long)edgeMax ? nextSwipeAt - edgeMax : now + 20;
+        unsigned long b = nextSwipeAt - edgeMin;
+        if (b > now + 40 && b > a + 20) {
+            a = max(a, now + 20);
+            if (b > a + 20) win[winCount++] = {a, b};
+        }
+    }
+
+    if (winCount == 0) return;
+    Window chosen = win[random(0, winCount)];
+    nextLikeAt = random(chosen.a, chosen.b + 1);
+}
+
+// 执行一次双击点赞
+void AutoSwipeManager::performLike() {
+    if (!ble || nextLikeAt == 0) return;
+
+    auto jitterVal = [this](int base, int pct, int minV, int maxV) {
+        int delta = (base * pct + 50) / 100;
+        return clampInt(base + random(-delta, delta + 1), minV, maxV);
+    };
+
+    // 取矩形中心附近一点作为点赞坐标，避免离滑动区域过远
+    int minX = min(cfg.x1, cfg.x2);
+    int maxX = max(cfg.x1, cfg.x2);
+    int minY = min(cfg.y1, cfg.y2);
+    int maxY = max(cfg.y1, cfg.y2);
+    int cx = (minX + maxX) / 2;
+    int cy = (minY + maxY) / 2;
+    int jitterX = clampInt((maxX - minX) / 6, 6, 40);
+    int jitterY = clampInt((maxY - minY) / 6, 6, 40);
+    int px = clampInt(randomAround(cx, jitterX), minX, maxX);
+    int py = clampInt(randomAround(cy, jitterY), minY, maxY);
+
+    ActionOptions opts;
+    opts.screenW = cfg.screenW;
+    opts.screenH = cfg.screenH;
+    opts.delayHover = jitterVal(cfg.delayHover, cfg.delayJitterPercent, 0, 2000);
+    opts.delayPress = jitterVal(cfg.delayPress, cfg.delayJitterPercent, 0, 2000);
+    opts.delayMultiClickInterval = jitterVal(cfg.doubleTapIntervalMs, cfg.doubleTapIntervalJitterPercent, 20, 1200);
+    opts.delayDoubleCheck = jitterVal(cfg.doubleCheck, cfg.delayJitterPercent, 0, 2000);
+
+    ble->click(px, py, 2, opts);
+    nextLikeAt = 0;
 }
 
 // Execute one randomized swipe based on config
@@ -324,6 +480,7 @@ void AutoSwipeManager::performSwipe() {
     ble->swipe(sx, sy, ex, ey, duration, opts);
 
     swipeInFlight = false;
+    lastSwipeEndedAt = millis();
 }
 
 // Init manager: load config and register routes
@@ -336,6 +493,7 @@ void AutoSwipeManager::begin(WebServer* srv, BleDriver* bleDriver) {
         server->on("/auto_swipe", HTTP_GET, [this]() { handleGet(); });
         server->on("/auto_swipe", HTTP_POST, [this]() { handlePost(); });
         server->on("/auto_swipe/status", HTTP_GET, [this]() { handleStatus(); });
+        server->on("/auto_swipe/reset_ble", HTTP_POST, [this]() { handleResetBle(); });
     }
 }
 
@@ -343,11 +501,13 @@ void AutoSwipeManager::begin(WebServer* srv, BleDriver* bleDriver) {
 void AutoSwipeManager::tick() {
     if (!cfg.enabled) {
         nextSwipeAt = 0;
+        nextLikeAt = 0;
         return;
     }
 
     if (WiFi.status() != WL_CONNECTED || !ble || !ble->isConnected()) {
         nextSwipeAt = 0;
+        nextLikeAt = 0;
         return;
     }
 
@@ -357,6 +517,10 @@ void AutoSwipeManager::tick() {
     }
 
     unsigned long now = millis();
+    if (!swipeInFlight && nextLikeAt != 0 && now >= nextLikeAt && now + 40 < nextSwipeAt) {
+        performLike();
+    }
+
     if (!swipeInFlight && now >= nextSwipeAt) {
         performSwipe();
         scheduleNext();

@@ -23,6 +23,8 @@ struct ActionOptions {
     // EN: Interval between swipe steps (controls smoothness)
     int delayRelease = 20;  // 抬起后的冷却时间
     // EN: Cooldown after release
+    int delayMultiClickInterval = 30; // 多次点击之间的间隔
+    // EN: Gap between multi-click presses
     int delayDoubleCheck = 20; // 防止断触的二次抬起延迟
     // EN: Extra delay before second release to avoid ghost touches
 
@@ -40,7 +42,11 @@ public:
     // 动作接口现在接收 options 结构体
     // EN: Action APIs now take the options struct
     void click(int x, int y, ActionOptions opts);
+    void click(int x, int y, int count, ActionOptions opts);
     void swipe(int x1, int y1, int x2, int y2, int duration, ActionOptions opts);
+    
+    // 重置配对信息并重新广播
+    void resetPairing();
 
 private:
     NimBLEHIDDevice* _hid;

@@ -32,6 +32,14 @@ struct AutoSwipeConfig {
     int doubleCheck = 20;         // 二次抬起延迟 / double-release delay
     int intervalMinSec = 5;       // 上划间隔最小秒 / min interval (s)
     int intervalMaxSec = 45;      // 上划间隔最大秒 / max interval (s)
+    // 点赞相关
+    bool doubleTapEnabled = true;         // 是否在间隔内随机双击点赞
+    int doubleTapProbPercent = 30;        // 触发概率基准 (%)
+    int doubleTapProbJitterPercent = 15;  // 概率波动 (%)
+    int doubleTapIntervalMs = 120;        // 双击间隔基准 (ms)
+    int doubleTapIntervalJitterPercent = 15; // 双击间隔波动 (%)
+    int doubleTapEdgeMinMs = 250;         // 距离当前/下次上划的最小安全间隔
+    int doubleTapEdgeMaxMs = 800;         // 距离当前/下次上划的最大安全间隔（实际随机取值）
 };
 
 class AutoSwipeManager {
@@ -45,6 +53,8 @@ private:
     BleDriver* ble = nullptr;
     AutoSwipeConfig cfg;
     unsigned long nextSwipeAt = 0;
+    unsigned long nextLikeAt = 0;
+    unsigned long lastSwipeEndedAt = 0;
     bool swipeInFlight = false;
 
     // 工具
@@ -60,10 +70,13 @@ private:
     void handleGet();
     void handlePost();
     void handleStatus();
+    void handleResetBle();
 
     // 业务
     unsigned long randomIntervalMs();
     void scheduleNext();
+    void scheduleLike();
+    void performLike();
     void performSwipe();
 };
 
