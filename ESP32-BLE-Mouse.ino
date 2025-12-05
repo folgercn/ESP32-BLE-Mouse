@@ -5,6 +5,10 @@
 #include "NetHelper.h"
 #include "BleDriver.h"
 #include "AutoSwipe.h"
+#include "ota.h"
+
+#define CURRENT_FIRMWARE_VERSION 20251205001L // YYYYMMDD + 3位序列号, L表示长整型
+OtaUpdater ota;
 
 NetHelper net;
 BleDriver ble;
@@ -96,6 +100,11 @@ void setup() {
     // EN: On first boot, connect to the "Wacom-Setup-xxxx" AP with a phone/PC to configure WiFi
     net.autoConfig();
     
+    // OTA 初始化并执行上电检查
+    // EN: Initialize OTA and perform power-on check
+    ota.begin(CURRENT_FIRMWARE_VERSION);
+    ota.checkAndUpdate();
+    
     // 2. 网络通了之后，根据 IP 生成蓝牙名
     // EN: After WiFi is up, generate BLE name based on IP
     String bleName = net.getDynamicBleName();
@@ -122,6 +131,7 @@ void loop() {
     server.handleClient();
     autoSwipe.tick();
     ble.tick();
+    ota.tick(); // 处理 OTA 定时轮询
 
     // 检测 BOOT 按键长按以恢复出厂设置
     int btn = digitalRead(PIN_BOOT);
