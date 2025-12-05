@@ -7,7 +7,7 @@
 #include "AutoSwipe.h"
 #include "ota.h"
 
-#define CURRENT_FIRMWARE_VERSION 20251205001L // YYYYMMDD + 3位序列号, L表示长整型
+#define CURRENT_FIRMWARE_VERSION 20251205001LL // YYYYMMDD + 3位序列号, LL表示 long long
 OtaUpdater ota;
 
 NetHelper net;
@@ -94,15 +94,26 @@ void setup() {
     pinMode(PIN_LED, OUTPUT);
     digitalWrite(PIN_LED, LOW);
 
+    // EN: Initialize the OTA controller first to make the LED hardware available.
+    // 中文: 首先初始化 OTA 控制器以确保 LED 硬件可用。
+    ota.begin(CURRENT_FIRMWARE_VERSION);
+
+    // EN: Link the OTA/LED controller to the network helper before starting Wi-Fi.
+    // 中文: 在启动 Wi-Fi 前，将 OTA/LED 控制器关联到网络助手。
+    net.setOtaUpdater(&ota);
+
     // 1. 自动配网 (阻塞式，直到连上 WiFi 才会继续)
     // EN: Auto WiFi provisioning (blocking until WiFi is connected)
     // 第一次运行请用手机连接 "Wacom-Setup-xxxx" 热点进行配置
     // EN: On first boot, connect to the "Wacom-Setup-xxxx" AP with a phone/PC to configure WiFi
     net.autoConfig();
     
-    // OTA 初始化并执行上电检查
-    // EN: Initialize OTA and perform power-on check
-    ota.begin(CURRENT_FIRMWARE_VERSION);
+    // EN: Turn off AP mode LED after successful Wi-Fi connection.
+    // 中文: Wi-Fi 连接成功后关闭 AP 模式指示灯。
+    ota.setApModeLed(false);
+    
+    // EN: Perform an OTA check immediately after Wi-Fi is connected.
+    // 中文: 在 Wi-Fi 连接后执行一次上电 OTA 检查。
     ota.checkAndUpdate();
     
     // 2. 网络通了之后，根据 IP 生成蓝牙名
@@ -131,7 +142,9 @@ void loop() {
     server.handleClient();
     autoSwipe.tick();
     ble.tick();
-    ota.tick(); // 处理 OTA 定时轮询
+    // EN: Handle timed OTA polling and system status LED.
+    // 中文: 处理 OTA 定时轮询和系统状态灯。
+    ota.tick(WiFi.status() == WL_CONNECTED, ble.isConnected());
 
     // 检测 BOOT 按键长按以恢复出厂设置
     int btn = digitalRead(PIN_BOOT);
