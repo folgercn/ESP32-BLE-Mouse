@@ -1,3 +1,4 @@
+#include "Config.h"
 #include "ota.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -90,7 +91,7 @@ void OtaUpdater::setApModeLed(bool active) {
 
 void OtaUpdater::checkAndUpdate() {
     _isOtaInProgress = true; // EN: Take control of the LED for the OTA process. / 中文: 为 OTA 流程接管 LED 控制权。
-    Serial.println("Checking for OTA update...");
+    DEBUG_PRINTLN("Checking for OTA update...");
     setLedColor(_strip.Color(0, 0, 255)); 
 
     WiFiClientSecure client;
@@ -98,7 +99,7 @@ void OtaUpdater::checkAndUpdate() {
     HTTPClient http;
 
     if (!http.begin(client, OTA_JSON_URL)) {
-        Serial.println("Failed to connect to OTA server.");
+        DEBUG_PRINTLN("Failed to connect to OTA server.");
         ledOff();
         _isOtaInProgress = false; // EN: Release LED control. / 中文: 释放 LED 控制权。
         return;
@@ -106,7 +107,7 @@ void OtaUpdater::checkAndUpdate() {
 
     int httpCode = http.GET();
     if (httpCode != HTTP_CODE_OK) {
-        Serial.printf("Failed to get OTA config, HTTP code: %d\n", httpCode);
+        DEBUG_PRINTF("Failed to get OTA config, HTTP code: %d\n", httpCode);
         http.end();
         ledOff();
         _isOtaInProgress = false; // EN: Release LED control. / 中文: 释放 LED 控制权。
@@ -120,8 +121,8 @@ void OtaUpdater::checkAndUpdate() {
     DeserializationError error = deserializeJson(doc, payload);
 
     if (error) {
-        Serial.print("JSON deserialization failed: ");
-        Serial.println(error.c_str());
+        DEBUG_PRINT("JSON deserialization failed: ");
+        DEBUG_PRINTLN(error.c_str());
         ledOff();
         _isOtaInProgress = false; // EN: Release LED control. / 中文: 释放 LED 控制权。
         return;
@@ -131,13 +132,13 @@ void OtaUpdater::checkAndUpdate() {
     String firmwareUrl = doc["url"].as<String>();
     String firmwareMd5 = doc["md5"].as<String>();
 
-    Serial.printf("Current version: %lld, Server version: %lld\n", _currentVersion, serverVersion);
+    DEBUG_PRINTF("Current version: %lld, Server version: %lld\n", _currentVersion, serverVersion);
 
     if (serverVersion > _currentVersion) {
-        Serial.println("New firmware version available. Starting update...");
+        DEBUG_PRINTLN("New firmware version available. Starting update...");
         performUpdate(firmwareUrl, firmwareMd5);
     } else {
-        Serial.println("Firmware is up to date.");
+        DEBUG_PRINTLN("Firmware is up to date.");
         ledOff();
         _isOtaInProgress = false; // EN: Release LED control. / 中文: 释放 LED 控制权。
     }
@@ -150,14 +151,14 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
     uint8_t* buffer = (uint8_t*)malloc(bufferSize);
 
     if (!buffer) {
-        Serial.println("Failed to allocate buffer for OTA download!");
+        DEBUG_PRINTLN("Failed to allocate buffer for OTA download!");
         setLedColor(_strip.Color(255, 0, 0));
         _isOtaInProgress = false; // EN: Release LED control (fatal error). / 中文: 释放 LED 控制权（致命错误）。
         return;
     }
 
     for (int i = 0; i < _maxRetries; i++) {
-        Serial.printf("Downloading firmware... Attempt %d/%d\n", i + 1, _maxRetries);
+        DEBUG_PRINTF("Downloading firmware... Attempt %d/%d\n", i + 1, _maxRetries);
 
         for(int j = 0; j < 3; j++) {
             setLedColor(_strip.Color(255, 0, 0));
@@ -169,30 +170,30 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
         delay(200);
 
         if (!http.begin(url)) {
-            Serial.println("Failed to begin HTTP for firmware download.");
+            DEBUG_PRINTLN("Failed to begin HTTP for firmware download.");
             continue;
         }
 
         int httpCode = http.GET();
         if (httpCode != HTTP_CODE_OK) {
-            Serial.printf("Firmware download failed, HTTP code: %d\n", httpCode);
+            DEBUG_PRINTF("Firmware download failed, HTTP code: %d\n", httpCode);
             http.end();
             continue;
         }
 
         int contentLength = http.getSize();
         if (contentLength <= 0) {
-            Serial.println("Content length is zero, skipping update.");
+            DEBUG_PRINTLN("Content length is zero, skipping update.");
             http.end();
             continue;
         }
 
-        Serial.println("Update process started. Flashing firmware...");
+        DEBUG_PRINTLN("Update process started. Flashing firmware...");
         setLedColor(_strip.Color(0, 255, 0));
 
         if (!Update.begin(contentLength)) {
-            Serial.print("Not enough space to begin OTA: ");
-            Serial.println(Update.errorString());
+            DEBUG_PRINT("Not enough space to begin OTA: ");
+            DEBUG_PRINTLN(Update.errorString());
             http.end();
             Update.abort();
             goto end_update_free_buffer; 
@@ -218,21 +219,21 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
         }
         
         if (!Update.end()) {
-            Serial.print("Update failed with error: ");
-            Serial.println(Update.errorString());
+            DEBUG_PRINT("Update failed with error: ");
+            DEBUG_PRINTLN(Update.errorString());
             http.end();
             Update.abort(); 
             continue;
         }
 
         if (Update.isFinished()) {
-            Serial.println("Update successful! Rebooting...");
+            DEBUG_PRINTLN("Update successful! Rebooting...");
             success = true;
             http.end(); 
             free(buffer); 
             ESP.restart();
         } else {
-             Serial.println("Update failed MD5 check or other finalization error.");
+             DEBUG_PRINTLN("Update failed MD5 check or other finalization error.");
              http.end();
              Update.abort(); 
              continue;
@@ -243,7 +244,7 @@ end_update_free_buffer:
     free(buffer); 
 
     if (!success) {
-        Serial.println("Failed to update firmware after all retries.");
+        DEBUG_PRINTLN("Failed to update firmware after all retries.");
         setLedColor(_strip.Color(255, 0, 0));
     }
     _isOtaInProgress = false; // EN: Release LED control. / 中文: 释放 LED 控制权。

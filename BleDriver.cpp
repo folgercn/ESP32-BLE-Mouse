@@ -1,3 +1,4 @@
+#include "Config.h"
 #include "BleDriver.h"
 
 // LED 引脚：TX=43, RX=44
@@ -20,14 +21,14 @@ public:
     explicit ConnectionCallbacks(BleDriver* driver) : _driver(driver) {}
     
     void onConnect(NimBLEServer* pServer) {
-        Serial.println(">>> [BLE] Connected! <<<");
+        DEBUG_PRINTLN(">>> [BLE] Connected! <<<");
         digitalWrite(PIN_LED_RX, LED_OFF_LEVEL);
         digitalWrite(PIN_LED_TX, LED_OFF_LEVEL);
         // 请求极速模式 (降低延迟)
         pServer->updateConnParams(pServer->getPeerInfo(0).getConnHandle(), 6, 6, 0, 100);
     }
     void onDisconnect(NimBLEServer* pServer) {
-        Serial.println(">>> [BLE] Disconnected! <<<");
+        DEBUG_PRINTLN(">>> [BLE] Disconnected! <<<");
         digitalWrite(PIN_LED_RX, LED_OFF_LEVEL);
         digitalWrite(PIN_LED_TX, LED_OFF_LEVEL);
         // 断开后立刻重新广播，允许别人连接
@@ -39,7 +40,7 @@ private:
 };
 
 void BleDriver::begin(String deviceName) {
-    Serial.println("[BLE] Init: " + deviceName);
+    DEBUG_PRINTLN("[BLE] Init: " + deviceName);
     NimBLEDevice::init(deviceName.c_str());
     // 配置通讯指示灯
     pinMode(PIN_LED_TX, OUTPUT);
@@ -92,7 +93,7 @@ bool BleDriver::isConnected() {
 }
 
 void BleDriver::resetPairing() {
-    Serial.println("[BLE] Reset pairing + restart advertising");
+    DEBUG_PRINTLN("[BLE] Reset pairing + restart advertising");
     NimBLEDevice::deleteAllBonds();
     clearLeds();
     NimBLEDevice::startAdvertising();

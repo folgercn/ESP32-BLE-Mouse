@@ -1,3 +1,4 @@
+#include "Config.h"
 #include "NetHelper.h"
 #include "ota.h" // EN: Include OtaUpdater header here for its definition. / 中文: 在这里引入 OtaUpdater 头文件以获取其定义。
 
@@ -8,7 +9,7 @@ bool shouldSaveConfig = false;
 // EN: Callback invoked when the user clicks "Save" on the WiFiManager portal.
 // 中文: 当用户在 WiFiManager 门户上点击“保存”时触发的回调函数。
 void saveConfigCallback () {
-  Serial.println("[WiFi] User clicked Save. Configuration needs update.");
+  DEBUG_PRINTLN("[WiFi] User clicked Save. Configuration needs update.");
   shouldSaveConfig = true;
 }
 
@@ -27,7 +28,7 @@ void NetHelper::autoConfig() {
         if (_otaUpdater) {
             // EN: Turn on solid yellow LED to indicate AP mode.
             // 中文: 点亮常亮黄灯以指示 AP 模式。
-            Serial.println("[WiFi] Entered AP mode, turning on yellow LED.");
+            DEBUG_PRINTLN("[WiFi] Entered AP mode, turning on yellow LED.");
             _otaUpdater->setApModeLed(true);
         }
         // EN: We don't need to process WiFiManager events here in a loop,
@@ -47,7 +48,7 @@ void NetHelper::autoConfig() {
     if (hasStatic) {
         IPAddress _ip, _gw, _sn;
         if (_ip.fromString(static_ip) && _gw.fromString(static_gw) && _sn.fromString(static_sn)) {
-            Serial.println("[WiFi] Using Static IP: " + String(static_ip));
+            DEBUG_PRINTLN("[WiFi] Using Static IP: " + String(static_ip));
             wm.setSTAStaticIPConfig(_ip, _gw, _sn);
         }
     }
@@ -70,12 +71,12 @@ void NetHelper::autoConfig() {
     String apName = "Wacom-Setup-" + String((uint32_t)ESP.getEfuseMac(), HEX);
     wm.setConfigPortalTimeout(180); // 3-minute timeout
 
-    Serial.println("[WiFi] Auto Connecting...");
+    DEBUG_PRINTLN("[WiFi] Auto Connecting...");
     
     // EN: Step 4: Try to auto connect (or start AP on failure, which triggers the callback).
     // 中文: 第4步: 尝试自动连接 (如果失败则启动 AP，这将触发回调)。
     if(!wm.autoConnect(apName.c_str())) {
-        Serial.println("[WiFi] Failed to connect and hit timeout. Restarting...");
+        DEBUG_PRINTLN("[WiFi] Failed to connect and hit timeout. Restarting...");
         delay(3000);
         ESP.restart();
     }
@@ -88,13 +89,13 @@ void NetHelper::autoConfig() {
         String newSN = custom_sn.getValue();
         
         if (newIP.length() > 0) {
-            Serial.println("[WiFi] Saving new Static IP: " + newIP);
+            DEBUG_PRINTLN("[WiFi] Saving new Static IP: " + newIP);
             saveConfig(newIP, newGW, newSN);
         }
     }
 
-    Serial.println("\n[WiFi] Connected!");
-    Serial.println("[WiFi] IP: " + WiFi.localIP().toString());
+    DEBUG_PRINTLN("\n[WiFi] Connected!");
+    DEBUG_PRINTLN("[WiFi] IP: " + WiFi.localIP().toString());
 }
 
 String NetHelper::getLocalIP() {
@@ -141,7 +142,7 @@ void NetHelper::resetSettings() {
     pref.clear();
     pref.end();
     
-    Serial.println("[WiFi] All settings erased (WiFi + Static IP)!");
+    DEBUG_PRINTLN("[WiFi] All settings erased (WiFi + Static IP)!");
 }
 
 String NetHelper::getDynamicBleName() {

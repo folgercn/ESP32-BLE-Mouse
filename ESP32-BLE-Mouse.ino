@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 
+#include "Config.h"
 #include "NetHelper.h"
 #include "BleDriver.h"
 #include "AutoSwipe.h"
@@ -87,7 +88,7 @@ void handleAction() {
 }
 
 void setup() {
-    Serial.begin(115200);
+    DEBUG_SERIAL_BEGIN(115200);
     randomSeed(analogRead(0));
 
     pinMode(PIN_BOOT, INPUT_PULLUP);
@@ -135,7 +136,7 @@ void setup() {
 
     server.on("/action", HTTP_POST, handleAction);
     server.begin();
-    Serial.println("[System] Ready. Control: http://" + net.getLocalIP() + "/action");
+    DEBUG_PRINTLN("[System] Ready. Control: http://" + net.getLocalIP() + "/action");
 }
 
 void loop() {
@@ -168,7 +169,7 @@ void loop() {
             WiFi.disconnect(true, true); // 断开并清空凭证
             net.resetSettings();         // 清除 WiFiManager/静态 IP
 
-            Serial.println("Rebooting..");
+            DEBUG_PRINTLN("Rebooting..");
             delay(200);
             ESP.restart();
         }
