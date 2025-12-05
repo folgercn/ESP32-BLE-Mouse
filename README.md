@@ -29,6 +29,7 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
    - `NimBLE-Arduino`
    - `ArduinoJson`
    - `WiFiManager`
+   - `Adafruit NeoPixel`
 3. **烧录**：将整个目录导入 IDE，选择对应的 ESP32 板卡与串口后上传。
 4. **首次配置**：
    - 设备会创建热点 `Wacom-Setup-XXXX`，用手机/PC 连接。
