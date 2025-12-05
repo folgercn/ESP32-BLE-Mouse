@@ -47,6 +47,8 @@ void handleAction() {
     JsonDocument doc; 
     DeserializationError error = deserializeJson(doc, body);
 
+    ble.pulseRx(80); // 有 HTTP 数据包时闪烁 RX
+
     if (error) {
         server.send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
         return;
@@ -101,6 +103,7 @@ void setup() {
 
     // 重置 WiFi 的接口
     server.on("/reset_wifi", HTTP_GET, []() {
+        ble.pulseRx(80);
         server.send(200, "text/plain", "WiFi settings cleared! Restarting...");
         delay(1000);
         WiFi.disconnect(true, true); // 清除保存的凭证
@@ -118,6 +121,7 @@ void setup() {
 void loop() {
     server.handleClient();
     autoSwipe.tick();
+    ble.tick();
 
     // 检测 BOOT 按键长按以恢复出厂设置
     int btn = digitalRead(PIN_BOOT);
@@ -128,8 +132,8 @@ void loop() {
         } else if (!resettingNow && millis() - bootPressAt >= 2000) {
             resettingNow = true;
 
-            // LED 快闪 5 次
-            for (int i = 0; i < 5; i++) {
+            // LED 快闪 25 次
+            for (int i = 0; i < 25; i++) {
                 digitalWrite(PIN_LED, HIGH);
                 delay(120);
                 digitalWrite(PIN_LED, LOW);

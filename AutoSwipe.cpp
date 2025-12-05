@@ -204,11 +204,13 @@ String AutoSwipeManager::renderPage(const AutoSwipeConfig& c, const String& mess
 
 // HTTP GET handler for the HTML form
 void AutoSwipeManager::handleGet() {
+    if (ble) ble->pulseRx(80);
     server->send(200, "text/html", renderPage(cfg));
 }
 
 // HTTP POST handler for form/JSON save
 void AutoSwipeManager::handlePost() {
+    if (ble) ble->pulseRx(80);
     AutoSwipeConfig newCfg = cfg;
     bool isJson = server->hasArg("plain") && server->header("Content-Type").indexOf("application/json") >= 0;
     bool parsed = false;
@@ -272,6 +274,7 @@ void AutoSwipeManager::handlePost() {
 
 // HTTP GET handler for JSON status
 void AutoSwipeManager::handleStatus() {
+    if (ble) ble->pulseRx(80);
     StaticJsonDocument<384> doc;
     doc["enabled"] = cfg.enabled;
     doc["x1"] = cfg.x1; doc["y1"] = cfg.y1;
@@ -308,6 +311,7 @@ void AutoSwipeManager::handleStatus() {
 
 // HTTP POST handler to reset BLE pairing/bonds
 void AutoSwipeManager::handleResetBle() {
+    if (ble) ble->pulseRx(80);
     if (!ble) {
         server->send(500, "application/json", "{\"error\":\"BLE 未初始化\"}");
         return;

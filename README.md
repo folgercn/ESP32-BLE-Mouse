@@ -13,6 +13,7 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
 - **工程化网络**：WiFiManager 自动配网 + 自定义静态 IP 表单；支持 `/reset_wifi` 接口一键恢复热点模式。
 - **可靠重连**：默认保留历史配对，设备重启后已配对手机会自动重连；需要清除配对时再手动触发。
 - **一键恢复**：长按板载 BOOT 键 2 秒，LED 快闪 5 次后清除 BLE 配对和 WiFi 配置并重启；`/auto_swipe` 页面也有“重置蓝牙配对”按钮。
+- **通讯指示灯**：TX=BLE 数据时低电平闪烁，RX=HTTP/WiFi 数据包时低电平闪烁；空闲自动熄灭。
 - **随机点赞**：自动上划间隔内可按概率随机触发双击点赞，概率/间隔/缓冲均支持波动。
 
 ## 系统结构
@@ -21,7 +22,7 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
 - `NetHelper.*`：WiFiManager 配网、静态 IP 存储、动态生成蓝牙广播名。
 
 ## 快速开始
-1. **硬件**：ESP32-DevKitC / ESP32-WROOM 模组，5V 供电。
+1. **硬件**：ESP32-CAM  / ESP32S3-WROOM 模组，5V 供电。
 2. **开发环境**：Arduino IDE 或 PlatformIO，需安装：
    - `NimBLE-Arduino`
    - `ArduinoJson`
@@ -126,6 +127,7 @@ ESP32 BLE Mouse Gateway impersonates a **Wacom Digitizer** so Android accepts it
 - **Operational Networking**: WiFiManager captive portal with optional static IP form; `GET /reset_wifi` clears credentials remotely.
 - **Persisted Pairing**: Bonds are kept across reboots so phones auto-reconnect; clear bonds only via BOOT long-press or the Auto Swipe page button.
 - **One-Key Recovery**: Hold BOOT (GPIO0) ~2s → LED (GPIO2) flashes 5x, then clears BLE bonds + WiFi creds and reboots. `/auto_swipe` also exposes a “Reset BLE Pairing” button.
+- **Link Indicators**: TX LED pulses (active low) on BLE traffic, RX LED pulses on HTTP/WiFi traffic; both turn off automatically when idle.
 
 ### Architecture
 - `ESP32-BLE-Mouse.ino`: Hosts HTTP server, parses JSON, manages lifecycle.

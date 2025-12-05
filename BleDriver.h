@@ -38,6 +38,7 @@ class BleDriver {
 public:
     void begin(String deviceName);
     bool isConnected();
+
     
     // 动作接口现在接收 options 结构体
     // EN: Action APIs now take the options struct
@@ -47,11 +48,21 @@ public:
     
     // 重置配对信息并重新广播
     void resetPairing();
+    // 定时任务：关掉脉冲灯
+    void tick();
+    // WiFi 数据包闪 RX 灯
+    void pulseRx(unsigned long durationMs);
 
 private:
     NimBLEHIDDevice* _hid;
     NimBLECharacteristic* _input;
+    bool _txLedOn = false;
+    bool _rxLedOn = false;
+    unsigned long _txLedOffAt = 0;
+    unsigned long _rxLedOffAt = 0;
     
+    void pulseLed(bool& ledFlag, unsigned long& offAt, int pin, unsigned long durationMs);
+    void clearLeds();
     void sendRaw(int x, int y, uint8_t state);
     // mapVal 现在需要传入宽高
     // EN: mapVal now maps using provided screen size
