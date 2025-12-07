@@ -102,6 +102,52 @@ String NetHelper::getLocalIP() {
     return WiFi.localIP().toString();
 }
 
+void NetHelper::beginDiscoveryResponder(uint16_t port, const String& magic, const String& version) {
+    _discoveryPort = port;
+    _discoveryMagic = magic;
+    _discoveryVersion = version;
+
+    if (_udp.begin(port)) {
+        _udpActive = true;
+        DEBUG_PRINTF("[UDP] Discovery listening on %u\n", port);
+    } else {
+        DEBUG_PRINTF("[UDP] Failed to bind discovery port %u\n", port);
+    }
+}
+
+void NetHelper::tickDiscovery() {
+    if (!_udpActive || WiFi.status() != WL_CONNECTED) {
+        return;
+    }
+
+    int packetSize = _udp.parsePacket();
+    if (!packetSize) {
+        return;
+    }
+
+    char incoming[80];
+    int len = _udp.read(incoming, sizeof(incoming) - 1);
+    if (len <= 0) {
+        return;
+    }
+    incoming[len] = '\0';
+
+    String probe = String(incoming);
+    probe.trim();
+    if (probe != _discoveryMagic) {
+        return;
+    }
+
+    String response = "{\"device\":\"esp32-ble-mouse\",\"ip\":\"" + WiFi.localIP().toString() +
+                      "\",\"mac\":\"" + WiFi.macAddress() +
+                      "\",\"version\":\"" + _discoveryVersion + "\"}";
+
+    DEBUG_PRINTLN("[UDP] Discovery probe received, replying with device info.");
+    _udp.beginPacket(_udp.remoteIP(), _udp.remotePort());
+    _udp.write((const uint8_t*)response.c_str(), response.length());
+    _udp.endPacket();
+}
+
 // EN: Helper: save static IP config into NVS.
 // 中文: 辅助函数：将静态 IP 配置保存到 NVS。
 void NetHelper::saveConfig(String ip, String gw, String sn) {

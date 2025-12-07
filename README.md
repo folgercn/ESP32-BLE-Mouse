@@ -13,6 +13,7 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
 - **稳定连接**：直接查询 NimBLE 协议栈连接数判断在线状态；自定义广播包解决部分机型搜不到设备的问题。
 - **JSON 驱动**：屏幕分辨率、速度、延迟、曲率等均由上位机 JSON 配置，固件无需重新编译。
 - **工程化网络**：WiFiManager 自动配网 + 自定义静态 IP 表单；支持 `/reset_wifi` 接口一键恢复热点模式。
+- **设备发现**：PC 向 `255.255.255.255:48321` 广播 `ESP32_BLE_MOUSE_DISCOVER`，设备单播回 IP/MAC/版本 JSON，便于批量扫描。
 - **可靠重连**：默认保留历史配对，设备重启后已配对手机会自动重连；需要清除配对时再手动触发。
 - **一键恢复**：长按板载 BOOT 键 2 秒，LED 快闪 5 次后清除 BLE 配对和 WiFi 配置并重启；`/auto_swipe` 页面也有“重置蓝牙配对”按钮。
 - **通讯指示灯**：TX=BLE 数据时低电平闪烁，RX=HTTP/WiFi 数据包时低电平闪烁；空闲自动熄灭。
@@ -38,6 +39,7 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
 5. **工作模式**：
    - 连接到 WiFi 后自动根据 MAC/IP 生成蓝牙名称并开始广播。
    - HTTP 服务器监听 `http://<设备IP>/action`。
+   - 网络发现：向 `255.255.255.255:48321` 发送文本 `ESP32_BLE_MOUSE_DISCOVER`，收到形如 `{"device":"esp32-ble-mouse","ip":"192.168.x.x","mac":"AA:BB:CC:DD:EE:FF","version":"20251205001"}` 的回应。
 6. **恢复热点**：访问 `http://<设备IP>/reset_wifi`，设备会清除凭证并重启。
 
 ## HTTP/JSON 控制接口
@@ -128,6 +130,7 @@ ESP32 BLE Mouse Gateway impersonates a **Wacom Digitizer** so Android accepts it
 - **Link Reliability**: Connection state reads directly from the NimBLE stack; handcrafted advertising fixes discoverability gaps.
 - **JSON-Driven Logic**: Resolution, delays, curve strength and motion speed all controlled by server JSON—no firmware rebuild.
 - **Operational Networking**: WiFiManager captive portal with optional static IP form; `GET /reset_wifi` clears credentials remotely.
+- **Discovery**: PC can broadcast `ESP32_BLE_MOUSE_DISCOVER` to `255.255.255.255:48321`; device unicasts back JSON with IP/MAC/version for fleet scanning.
 - **Persisted Pairing**: Bonds are kept across reboots so phones auto-reconnect; clear bonds only via BOOT long-press or the Auto Swipe page button.
 - **One-Key Recovery**: Hold BOOT (GPIO0) ~2s → LED (GPIO2) flashes 5x, then clears BLE bonds + WiFi creds and reboots. `/auto_swipe` also exposes a “Reset BLE Pairing” button.
 - **Link Indicators**: TX LED pulses (active low) on BLE traffic, RX LED pulses on HTTP/WiFi traffic; both turn off automatically when idle.
@@ -143,6 +146,7 @@ ESP32 BLE Mouse Gateway impersonates a **Wacom Digitizer** so Android accepts it
 3. Flash: open the folder, select the proper board/port, upload.
 4. First boot: device spawns AP `Wacom-Setup-XXXX`; connect, most phones will pop up the captive portal automatically—fill in WiFi and optional static IP there, or manually visit `192.168.4.1` if no portal appears.
 5. Run mode: after WiFi joins, BLE advertises with the dynamic name and HTTP server listens on `http://<device-ip>/action`.
+   - Discovery: broadcast plain text `ESP32_BLE_MOUSE_DISCOVER` to `255.255.255.255:48321`; the ESP32 replies with `{"device":"esp32-ble-mouse","ip":"...","mac":"...","version":"..."}`.
 6. Reset WiFi: call `http://<device-ip>/reset_wifi` to erase credentials and reboot into setup AP.
 
 ### API Recap

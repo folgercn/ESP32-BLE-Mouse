@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <Preferences.h>
+#include <WiFiUdp.h>
 
 class OtaUpdater; // EN: Forward declaration for OtaUpdater. / 中文: OtaUpdater 的前向声明。
 
@@ -50,6 +51,24 @@ public:
      */
     void resetSettings(); 
 
+    /**
+     * @brief Starts a UDP listener that answers discovery broadcasts.
+     * @brief 启动 UDP 监听以响应发现广播。
+     * @param port Listening port for discovery packets.
+     * @param port 用于发现报文的监听端口。
+     * @param magic Expected probe payload; only matching packets get a response.
+     * @param magic 期望的探测报文内容，只有匹配时才会回应。
+     * @param version Firmware version string placed in responses.
+     * @param version 用于回应的固件版本号字符串。
+     */
+    void beginDiscoveryResponder(uint16_t port, const String& magic, const String& version);
+
+    /**
+     * @brief Handles incoming discovery packets; call this in loop().
+     * @brief 处理收到的发现报文；在 loop() 中调用。
+     */
+    void tickDiscovery();
+
 private:
     // EN: Instance for reading/writing flash (NVS).
     // 中文: 用于读写闪存 (NVS) 的实例。
@@ -72,6 +91,13 @@ private:
      * @return 如果成功加载配置则返回 true，否则返回 false。
      */
     bool loadConfig(char* ip, char* gw, char* sn);
+
+    // --- UDP discovery / UDP 发现 ---
+    WiFiUDP _udp;
+    bool _udpActive = false;
+    uint16_t _discoveryPort = 0;
+    String _discoveryMagic;
+    String _discoveryVersion;
 };
 
 #endif

@@ -9,6 +9,8 @@
 #include "ota.h"
 
 #define CURRENT_FIRMWARE_VERSION 20251205001LL // YYYYMMDD + 3位序列号, LL表示 long long
+static const uint16_t DISCOVERY_PORT = 48321;
+static const char* DISCOVERY_MAGIC = "ESP32_BLE_MOUSE_DISCOVER";
 OtaUpdater ota;
 
 NetHelper net;
@@ -116,6 +118,10 @@ void setup() {
     // EN: Perform an OTA check immediately after Wi-Fi is connected.
     // 中文: 在 Wi-Fi 连接后执行一次上电 OTA 检查。
     ota.checkAndUpdate();
+
+    // EN: Start UDP discovery responder for PC-side scanning.
+    // 中文: 启动 UDP 发现响应器，便于 PC 端扫描。
+    net.beginDiscoveryResponder(DISCOVERY_PORT, DISCOVERY_MAGIC, String(CURRENT_FIRMWARE_VERSION));
     
     // 2. 网络通了之后，根据 IP 生成蓝牙名
     // EN: After WiFi is up, generate BLE name based on IP
@@ -143,6 +149,7 @@ void loop() {
     server.handleClient();
     autoSwipe.tick();
     ble.tick();
+    net.tickDiscovery();
     // EN: Handle timed OTA polling and system status LED.
     // 中文: 处理 OTA 定时轮询和系统状态灯。
     ota.tick(WiFi.status() == WL_CONNECTED, ble.isConnected());
