@@ -9,7 +9,7 @@
 #include "AutoSwipe.h"
 #include "ota.h"
 
-#define CURRENT_FIRMWARE_VERSION 20251209001LL // YYYYMMDD + 3位序列号, LL表示 long long
+#define CURRENT_FIRMWARE_VERSION 20251210001LL // YYYYMMDD + 3位序列号, LL表示 long long
 static const uint16_t DISCOVERY_PORT = 48321;
 static const char* DISCOVERY_MAGIC = "ESP32_BLE_MOUSE_DISCOVER";
 OtaUpdater ota;
