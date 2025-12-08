@@ -117,7 +117,8 @@ void OtaUpdater::checkAndUpdate() {
     String payload = http.getString();
     http.end();
 
-    JsonDocument doc;
+    // Use static allocation to avoid heap pressure during TLS operations.
+    StaticJsonDocument<512> doc;
     DeserializationError error = deserializeJson(doc, payload);
 
     if (error) {
@@ -145,9 +146,9 @@ void OtaUpdater::checkAndUpdate() {
 }
 
 void OtaUpdater::performUpdate(const String& url, const String& md5) {
-    HTTPClient http;
     bool success = false;
-    const size_t bufferSize = 4096;
+    // Keep the buffer small to reduce RAM usage while downloading over TLS.
+    const size_t bufferSize = 2048;
     uint8_t* buffer = (uint8_t*)malloc(bufferSize);
 
     if (!buffer) {
@@ -160,7 +161,7 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
     for (int i = 0; i < _maxRetries; i++) {
         DEBUG_PRINTF("Downloading firmware... Attempt %d/%d\n", i + 1, _maxRetries);
 
-        for(int j = 0; j < 3; j++) {
+        for (int j = 0; j < 3; j++) {
             setLedColor(_strip.Color(255, 0, 0));
             delay(100);
             setLedColor(_strip.Color(0, 0, 255));
@@ -169,10 +170,20 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
         ledOff();
         delay(200);
 
-        if (!http.begin(url)) {
+        HTTPClient http;
+        WiFiClientSecure fwClient;
+        fwClient.setInsecure();
+        // Shrink TLS buffers to fit alongside BLE; avoids esp-aes OOM.
+        fwClient.setBufferSizes(1024, 1024);
+
+        if (!http.begin(fwClient, url)) {
             DEBUG_PRINTLN("Failed to begin HTTP for firmware download.");
             continue;
         }
+
+        http.setReuse(false);
+        http.useHTTP10(true);
+        http.setTimeout(15000);
 
         int httpCode = http.GET();
         if (httpCode != HTTP_CODE_OK) {
