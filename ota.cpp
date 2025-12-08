@@ -1,5 +1,6 @@
 #include "Config.h"
 #include "ota.h"
+#include "BleDriver.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
@@ -117,6 +118,9 @@ void OtaUpdater::checkAndUpdate() {
     String payload = http.getString();
     http.end();
 
+    DEBUG_PRINT("OTA JSON payload: ");
+    DEBUG_PRINTLN(payload);
+
     // Use static allocation to avoid heap pressure during TLS operations.
     StaticJsonDocument<512> doc;
     DeserializationError error = deserializeJson(doc, payload);
@@ -146,14 +150,21 @@ void OtaUpdater::checkAndUpdate() {
 }
 
 void OtaUpdater::performUpdate(const String& url, const String& md5) {
+    bool blePaused = false;
+    if (_ble) {
+        _ble->pause();
+        blePaused = true;
+    }
+
     bool success = false;
     // Keep the buffer small to reduce RAM usage while downloading over TLS.
-    const size_t bufferSize = 2048;
+    const size_t bufferSize = 1024;
     uint8_t* buffer = (uint8_t*)malloc(bufferSize);
 
     if (!buffer) {
         DEBUG_PRINTLN("Failed to allocate buffer for OTA download!");
         setLedColor(_strip.Color(255, 0, 0));
+        if (blePaused && _ble) _ble->resume();
         _isOtaInProgress = false; // EN: Release LED control (fatal error). / 中文: 释放 LED 控制权（致命错误）。
         return;
     }
@@ -173,8 +184,8 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
         HTTPClient http;
         WiFiClientSecure fwClient;
         fwClient.setInsecure();
-        // Shrink TLS buffers to fit alongside BLE; avoids esp-aes OOM.
-        fwClient.setBufferSizes(1024, 1024);
+
+        DEBUG_PRINTF("Firmware URL: %s\n", url.c_str());
 
         if (!http.begin(fwClient, url)) {
             DEBUG_PRINTLN("Failed to begin HTTP for firmware download.");
@@ -192,14 +203,20 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
             continue;
         }
 
+        // 下载阶段：用青色指示“正在下载”
+        setLedColor(_strip.Color(0, 150, 255));
+        DEBUG_PRINTLN("HTTP connected, start downloading...");
+
         int contentLength = http.getSize();
         if (contentLength <= 0) {
             DEBUG_PRINTLN("Content length is zero, skipping update.");
             http.end();
             continue;
         }
+        DEBUG_PRINTF("Content-Length: %d bytes\n", contentLength);
 
         DEBUG_PRINTLN("Update process started. Flashing firmware...");
+        // 刷写阶段：用绿色指示“正在刷写”
         setLedColor(_strip.Color(0, 255, 0));
 
         if (!Update.begin(contentLength)) {
@@ -214,6 +231,8 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
 
         WiFiClient* stream = http.getStreamPtr();
         size_t written = 0;
+        uint32_t lastDataMs = millis();
+        size_t nextLog = contentLength > 0 ? contentLength / 10 : 0; // 每 10% 打印一次
 
         while (stream->connected() && (written < contentLength || contentLength == -1)) { 
             size_t bytesToRead = stream->available();
@@ -223,9 +242,20 @@ void OtaUpdater::performUpdate(const String& url, const String& md5) {
                 if (bytesRead > 0) {
                     Update.write(buffer, bytesRead);
                     written += bytesRead;
+                    lastDataMs = millis(); // reset timeout on progress
+                    if (contentLength > 0 && written >= nextLog) {
+                        int percent = (written * 100) / contentLength;
+                        DEBUG_PRINTF("Flashing... %d%% (%u/%d)\n", percent, (unsigned)written, contentLength);
+                        nextLog += contentLength / 10;
+                    }
                 }
             } else {
                 delay(1);
+            }
+            // abort if no data arrives for too long to avoid hanging
+            if (millis() - lastDataMs > 15000) {
+                DEBUG_PRINTLN("Download stalled (no data for 15s), aborting.");
+                break;
             }
         }
         
@@ -257,6 +287,7 @@ end_update_free_buffer:
     if (!success) {
         DEBUG_PRINTLN("Failed to update firmware after all retries.");
         setLedColor(_strip.Color(255, 0, 0));
+        if (blePaused && _ble) _ble->resume();
     }
     _isOtaInProgress = false; // EN: Release LED control. / 中文: 释放 LED 控制权。
 }

@@ -1,6 +1,7 @@
 #include <WebServer.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <esp_heap_caps.h>
 
 #include "Config.h"
 #include "NetHelper.h"
@@ -8,7 +9,7 @@
 #include "AutoSwipe.h"
 #include "ota.h"
 
-#define CURRENT_FIRMWARE_VERSION 20251205001LL // YYYYMMDD + 3位序列号, LL表示 long long
+#define CURRENT_FIRMWARE_VERSION 20251209001LL // YYYYMMDD + 3位序列号, LL表示 long long
 static const uint16_t DISCOVERY_PORT = 48321;
 static const char* DISCOVERY_MAGIC = "ESP32_BLE_MOUSE_DISCOVER";
 OtaUpdater ota;
@@ -97,6 +98,12 @@ void setup() {
     pinMode(PIN_LED, OUTPUT);
     digitalWrite(PIN_LED, LOW);
 
+    DEBUG_PRINTF("PSRAM: %s, size=%d, free_psram=%d, free_internal=%d\n",
+        psramFound() ? "yes" : "no",
+        ESP.getPsramSize(),
+        heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+        heap_caps_get_free_size(MALLOC_CAP_8BIT));
+
     // EN: Initialize the OTA controller first to make the LED hardware available.
     // 中文: 首先初始化 OTA 控制器以确保 LED 硬件可用。
     ota.begin(CURRENT_FIRMWARE_VERSION);
@@ -127,6 +134,7 @@ void setup() {
     // EN: After WiFi is up, generate BLE name based on IP
     String bleName = net.getDynamicBleName();
     ble.begin(bleName);
+    ota.setBleDriver(&ble);
 
     // 重置 WiFi 的接口
     server.on("/reset_wifi", HTTP_GET, []() {

@@ -1,1 +1,5 @@
- { "version": "20251201001", "url": "http://your-server-ip/firmware_v1.0.2.bin", "md5": "optional-md5-hash-for-security" }
+{
+    "version": "20251208001",
+    "url": "http://datav-d-gzcom.oss-cn-hangzhou.aliyuncs.com/esp32/s3/20251208001.bin",
+    "md5": "b388498ee04ee03fb86840004e3b0b5a"
+}

@@ -38,6 +38,8 @@ class BleDriver {
 public:
     void begin(String deviceName);
     bool isConnected();
+    void pause();
+    void resume();
 
     
     // 动作接口现在接收 options 结构体
@@ -60,6 +62,8 @@ private:
     bool _rxLedOn = false;
     unsigned long _txLedOffAt = 0;
     unsigned long _rxLedOffAt = 0;
+    String _deviceName;
+    bool _paused = false;
     
     void pulseLed(bool& ledFlag, unsigned long& offAt, int pin, unsigned long durationMs);
     void clearLeds();

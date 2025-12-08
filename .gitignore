@@ -1,0 +1,17 @@
+# Ignore build artifacts
+/build/
+
+# macOS metadata
+.DS_Store
+# Build outputs
+/build/
+*.bin
+*.elf
+*.map
+
+# IDE/project files
+.vscode/
+.idea/
+.DS_Store
+*.log
+*.tmp

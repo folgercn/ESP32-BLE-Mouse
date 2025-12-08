@@ -17,6 +17,7 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
 - **可靠重连**：默认保留历史配对，设备重启后已配对手机会自动重连；需要清除配对时再手动触发。
 - **一键恢复**：长按板载 BOOT 键 2 秒，LED 快闪 5 次后清除 BLE 配对和 WiFi 配置并重启；`/auto_swipe` 页面也有“重置蓝牙配对”按钮。
 - **通讯指示灯**：TX=BLE 数据时低电平闪烁，RX=HTTP/WiFi 数据包时低电平闪烁；空闲自动熄灭。
+- **OTA 可靠性**：启动打印 PSRAM 状态；OTA 前自动暂停 BLE 释放内存；下载阶段 LED 青色、刷写阶段绿色，10% 进度打印，15s 无数据自动超时。
 - **随机点赞**：自动上划间隔内可按概率随机触发双击点赞，概率/间隔/缓冲均支持波动。
 
 ## 系统结构
@@ -41,6 +42,12 @@ ESP32 安卓自动化控制网关以 **Wacom Digitizer** 触控笔身份伪装�
    - HTTP 服务器监听 `http://<设备IP>/action`。
    - 网络发现：向 `255.255.255.255:48321` 发送文本 `ESP32_BLE_MOUSE_DISCOVER`，收到形如 `{"device":"esp32-ble-mouse","ip":"192.168.x.x","mac":"AA:BB:CC:DD:EE:FF","version":"20251205001"}` 的回应。
 6. **恢复热点**：访问 `http://<设备IP>/reset_wifi`，设备会清除凭证并重启。
+
+## OTA 提示 / OTA Notes
+- 启动串口会打印 PSRAM 状态（是否检测到、容量、PSRAM/内部剩余），便于确认板卡是否开启 PSRAM。
+- OTA 流程：HTTP 拉取 `otaup.json` → 下载阶段 LED 青色 → 获取 Content-Length 后进入刷写阶段 LED 绿色 → 每 10% 打印进度，15s 无数据自动中断并重试。
+- 为降低 TLS 内存占用，下载缓冲缩小到 1KB；如果 HTTPS 仍报 `esp-aes: Failed to allocate memory`，可暂时改 HTTP 或确保 PSRAM 开启。
+- OTA 前会自动暂停 BLE（NimBLE deinit）释放内存，失败会恢复，成功则设备重启。
 
 ## HTTP/JSON 控制接口
 - **Endpoint**：`POST /action`

@@ -40,6 +40,8 @@ private:
 };
 
 void BleDriver::begin(String deviceName) {
+    _deviceName = deviceName;
+    _paused = false;
     DEBUG_PRINTLN("[BLE] Init: " + deviceName);
     NimBLEDevice::init(deviceName.c_str());
     // 配置通讯指示灯
@@ -89,10 +91,33 @@ void BleDriver::begin(String deviceName) {
 }
 
 bool BleDriver::isConnected() {
+    if (_paused) return false;
     return NimBLEDevice::getServer()->getConnectedCount() > 0;
 }
 
+void BleDriver::pause() {
+    if (_paused) return;
+    DEBUG_PRINTLN("[BLE] Pause for OTA");
+    NimBLEDevice::stopAdvertising();
+    NimBLEDevice::deinit(true);
+    clearLeds();
+    _input = nullptr;
+    _hid = nullptr;
+    _paused = true;
+}
+
+void BleDriver::resume() {
+    if (!_paused) return;
+    DEBUG_PRINTLN("[BLE] Resume after OTA");
+    if (_deviceName.length() == 0) {
+        DEBUG_PRINTLN("[BLE] Resume skipped: deviceName empty");
+        return;
+    }
+    begin(_deviceName);
+}
+
 void BleDriver::resetPairing() {
+    if (_paused) return;
     DEBUG_PRINTLN("[BLE] Reset pairing + restart advertising");
     NimBLEDevice::deleteAllBonds();
     clearLeds();
@@ -150,7 +175,7 @@ void BleDriver::clearLeds() {
 }
 
 void BleDriver::sendRaw(int x, int y, uint8_t state) {
-    if (!isConnected() || _input == nullptr) return;
+    if (_paused || !isConnected() || _input == nullptr) return;
 
     uint8_t buffer[6];
     buffer[0] = state;

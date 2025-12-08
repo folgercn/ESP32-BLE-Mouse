@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
+class BleDriver;
+
 /**
  * @class OtaUpdater
  * @brief Manages OTA firmware updates and system status LED notifications.
@@ -82,6 +84,12 @@ private:
      * @param md5 用于固件校验的 MD5 哈希值。
      */
     void performUpdate(const String& url, const String& md5);
+
+public:
+    void setBleDriver(BleDriver* ble) { _ble = ble; }
+
+private:
+    BleDriver* _ble = nullptr;
 };
 
 #endif // OTA_H
