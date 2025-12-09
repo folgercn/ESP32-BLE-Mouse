@@ -1,6 +1,8 @@
 # CHANGELOG / 更新日志
 
 ## [Unreleased]
+- 修复了在开启 PSRAM 后重置设备导致蓝牙配对失败的问题。长按 BOOT 按钮现在会彻底擦除所有 NVS 配置，确保完全恢复出厂设置。
+- Fixed an issue where BLE pairing would fail after resetting the device with PSRAM enabled. Long-pressing the BOOT button now performs a complete NVS erase, ensuring a full factory reset.
 - AP 模式下黄灯常亮，便于确认热点状态 / Yellow LED stays on in AP mode for hotspot visibility.
 - Wi-Fi 已连接但蓝牙未连接时，蓝灯闪烁提示正在等待 BLE 链接 / Blue LED blinks while Wi-Fi is up but BLE is not yet connected.
 - OTA 阶段区分：下载青色、刷写绿色、失败红色，10% 进度日志+JSON/URL 调试输出，15s 无数据自动中断重试 / OTA LEDs now cyan (download), green (flash), red (fail) with 10% progress logs, JSON/URL debug, and 15s stall timeout.

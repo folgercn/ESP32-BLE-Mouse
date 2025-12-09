@@ -25,7 +25,9 @@ public:
         digitalWrite(PIN_LED_RX, LED_OFF_LEVEL);
         digitalWrite(PIN_LED_TX, LED_OFF_LEVEL);
         // 请求极速模式 (降低延迟)
-        pServer->updateConnParams(pServer->getPeerInfo(0).getConnHandle(), 6, 6, 0, 100);
+        // EN: Relax connection parameters to improve compatibility (interval 30ms, timeout 4s).
+        // 中文: 放宽连接参数以提高兼容性 (连接间隔 30ms, 超时 4s)。
+        pServer->updateConnParams(pServer->getPeerInfo(0).getConnHandle(), 24, 24, 0, 400);
     }
     void onDisconnect(NimBLEServer* pServer) {
         DEBUG_PRINTLN(">>> [BLE] Disconnected! <<<");
@@ -52,10 +54,23 @@ void BleDriver::begin(String deviceName) {
     
     // 保留历史配对，便于手机自动重连；如需手动清除，走 BOOT 长按或网页重置
     
-    // 开启安全认证 (安卓必须)
-    NimBLEDevice::setSecurityAuth(true, true, true);
-
-    NimBLEServer* pServer = NimBLEDevice::createServer();
+        // 开启安全认证 (安卓必须)
+    
+        // EN: Disable MITM to fix pairing issues on headless devices.
+    
+        // 中文: 关闭 MITM (中间人保护) 以解决无屏幕设备的配对卡死问题。
+    
+        NimBLEDevice::setSecurityAuth(true, false, true);
+    
+        // EN: Explicitly set IO capabilities to No Input No Output.
+    
+        // 中文: 显式设置 IO 能力为无输入无输出。
+    
+        NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+    
+    
+    
+        NimBLEServer* pServer = NimBLEDevice::createServer();
     pServer->setCallbacks(new ConnectionCallbacks(this));
 
     _hid = new NimBLEHIDDevice(pServer);

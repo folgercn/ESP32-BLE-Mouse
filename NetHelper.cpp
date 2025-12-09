@@ -1,6 +1,7 @@
 #include "Config.h"
 #include "NetHelper.h"
 #include "ota.h" // EN: Include OtaUpdater header here for its definition. / 中文: 在这里引入 OtaUpdater 头文件以获取其定义。
+#include <nvs_flash.h> // 引入 NVS 操作库
 
 // EN: Flag to indicate whether WiFiManager parameters should be saved.
 // 中文: 标志位，用于指示是否需要保存 WiFiManager 的参数。
@@ -188,7 +189,14 @@ void NetHelper::resetSettings() {
     pref.clear();
     pref.end();
     
-    DEBUG_PRINTLN("[WiFi] All settings erased (WiFi + Static IP)!");
+    // EN: Perform a low-level NVS erase to clear Bluetooth bonds and any corrupted data.
+    // 中文: 执行底层 NVS 擦除，以清除蓝牙绑定和任何损坏的数据。
+    DEBUG_PRINTLN("[System] Erasing NVS Flash...");
+    esp_err_t ret = nvs_flash_erase();
+    if (ret == ESP_OK) {
+        ret = nvs_flash_init();
+    }
+    DEBUG_PRINTLN("[WiFi] All settings erased (WiFi + Static IP + NVS)!");
 }
 
 String NetHelper::getDynamicBleName() {
